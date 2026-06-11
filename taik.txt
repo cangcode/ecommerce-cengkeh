@@ -1,0 +1,18 @@
+[TODO LIST]
+
+✅ rapikan add form product, htmlfor dan idnya belum konsisten, buat formnya lebih rapi dan mudah dibaca 
+✅ buat input harga grosir 
+
+✅ tambah preview gambar setelah di upload agar user liat 
+✅ insert hasil add product form ke database
+
+fitur menu pembeli dan penjual ketuker
+rapikan zod dan schema
+tampilkan hasil add product di semua product
+bikin boarding untuk seller profiles
+
+
+
+
+- opsional 
+buat database gambar

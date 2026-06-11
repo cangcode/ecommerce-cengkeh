@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "seller_ids" bigint NOT NULL;
