@@ -46,7 +46,7 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-const formSchema = z
+export const formSchema = z
   .object({
     title: z
       .string()
@@ -138,7 +138,7 @@ export function AddProductForm() {
     const payload = {
       ...data,
       seller_id: session?.user.id,
-      slug: `${slugify(data.title)}-${Date.now().toString(36)}`,
+      slug: `${slugify(data.title)}`,
     };
 
     const response = await fetch("/api/products", {
@@ -147,18 +147,18 @@ export function AddProductForm() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        sellerId: payload.seller_id,
+        seller_id: payload.seller_id,
         slug: payload.slug,
-        name: payload.title,
+        title: payload.title,
         description: payload.description,
         price: payload.price,
-        weightUnit: payload.weight_unit,
+        weight_unit: payload.weight_unit,
         stock: payload.stock,
-        images: payload.image_url,
+        image_url: payload.image_url,
         ...(payload.is_wholesale
           ? {
-              wholesalePrice: payload.wholesale_price,
-              minWholesaleQty: payload.wholesale_qty,
+              wholesale_price: payload.wholesale_price,
+              wholesale_qty: payload.wholesale_qty,
             }
           : {}),
       }),
