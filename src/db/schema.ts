@@ -11,7 +11,7 @@ import {
 
 export const roleEnum = pgEnum("user_role", ["admin", "pembeli", "penjual"]);
 
-// 2. Definisikan tabel users
+// table user
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   username: varchar("username").notNull().unique(),
@@ -31,19 +31,20 @@ export const users = pgTable("users", {
   addressId: bigint("address_id", { mode: "number" }),
 });
 
+// table products
 export const weightUnitEnum = pgEnum("weight_unit", ["gram", "kg"]);
 export const products = pgTable("products", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
-  sellerId: varchar("seller_id", { length: 255 }).notNull(),
+  seller_id: varchar("seller_id", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
-  name: varchar("name", { length: 255 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
   price: bigint("price", { mode: "number" }).notNull(),
-  wholesalePrice: bigint("wholesale_price", { mode: "number" }),
-  minWholesaleQty: bigint("min_wholesale_qty", {
+  wholesale_price: bigint("wholesale_price", { mode: "number" }),
+  wholesale_qty: bigint("wholesale_qty", {
     mode: "number",
   }),
-  weightUnit: weightUnitEnum("weight_unit").notNull(),
+  weight_unit: weightUnitEnum("weight_unit").notNull(),
   stock: bigint("stock", {
     mode: "number",
   }).notNull(),
@@ -56,10 +57,10 @@ export const products = pgTable("products", {
     >()
     .notNull()
     .default([]),
-  createdAt: timestamp("created_at", {
+  created_at: timestamp("created_at", {
     withTimezone: true,
   }).defaultNow(),
-  updatedAt: timestamp("updated_at", {
+  updated_at: timestamp("updated_at", {
     withTimezone: true,
   }).defaultNow(),
 });

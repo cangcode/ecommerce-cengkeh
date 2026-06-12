@@ -22,6 +22,13 @@
       "when": 1781109988431,
       "tag": "0002_funny_silvermane",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781245463633,
+      "tag": "0003_marvelous_kinsey_walden",
+      "breakpoints": true
     }
   ]
 }

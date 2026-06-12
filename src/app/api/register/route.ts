@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { registerUser } from "@/db/data/users";
+import { registerUser } from "@/db/data/users/users.actions";
 
 export const runtime = "nodejs";
 
