@@ -1,18 +1,18 @@
 import { z } from "zod";
 
 export const createProductSchema = z.object({
-  sellerId: z.string(),
+  seller_id: z.string(),
   slug: z.string().min(1),
-  name: z.string().min(1),
-  description: z.string().optional(),
-  price: z.coerce.number().positive(),
-  wholesalePrice: z.coerce.number().positive().optional(),
-  minWholesaleQty: z.coerce.number().int().positive().optional(),
-  weightUnit: z.enum(["gram", "kg"]),
-  stock: z.coerce.number().int().min(0),
-  images: z.array(
+  title: z.string().min(1),
+  description: z.string().min(1),
+  price: z.number().positive(),
+  wholesale_price: z.number().positive(),
+  wholesale_qty: z.number().int().positive(),
+  weight_unit: z.enum(["gram", "kg"]),
+  stock: z.number().int().positive(),
+  image_url: z.array(
     z.object({
-      public_id: z.string(),
+      public_id: z.string().min(1),
       secure_url: z.url(),
     }),
   ),

@@ -3,6 +3,7 @@ import { users } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { hash } from "bcrypt-ts";
 import { z } from "zod";
+import { registerSchema } from "./users.schema";
 
 // Fungsi query murni (hanya mengambil data)
 export async function getUserFromDB(email: string) {
@@ -18,13 +19,6 @@ export async function getUserFromDB(email: string) {
     return null;
   }
 }
-
-const registerSchema = z.object({
-  username: z.string().min(3, "Username minimal 3 karakter"),
-  email: z.email("Format email tidak valid"),
-  password: z.string().min(8, "Password minimal 8 karakter"),
-  role: z.enum(["pembeli", "penjual"]),
-});
 
 type RegisterInput = z.infer<typeof registerSchema>;
 
