@@ -51,14 +51,17 @@ export async function DashboardSidebar() {
           </div>
         </div>
       </SidebarHeader>
-      {session?.user.role === "pembeli" ? (
+      {session?.user.role === "penjual" ? (
         <>
           {/* sidebar pembeli */}
           <SidebarContent>
             <Collapsible defaultOpen className="group/collapsible px-2">
               <SidebarGroup className="p-0">
-                <SidebarGroupLabel asChild className="px-0 font-semibold">
-                  <CollapsibleTrigger className="flex w-full items-center px-2 py-1 text-cengkeh-brown hover:bg-cengkeh-brown! hover:text-cengkeh-beige active:bg-cengkeh-brown active:text-cengkeh-beige">
+                <SidebarGroupLabel
+                  asChild
+                  className="px-0 font-semibold text-cengkeh-brown"
+                >
+                  <CollapsibleTrigger className="flex w-full items-center px-2 py-1 text-cengkeh-brown hover:bg-cengkeh-brown! hover:text-cengkeh-beige text-opacity active:bg-cengkeh-brown active:text-cengkeh-beige">
                     Produk
                     <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
                   </CollapsibleTrigger>
@@ -105,7 +108,7 @@ export async function DashboardSidebar() {
             </SidebarGroup>
           </SidebarContent>
         </>
-      ) : session?.user.role === "penjual" ? (
+      ) : session?.user.role === "pembeli" ? (
         <>
           {/* sidebar penjual */}
           <SidebarContent>

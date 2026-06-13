@@ -35,7 +35,7 @@ export const users = pgTable("users", {
 export const weightUnitEnum = pgEnum("weight_unit", ["gram", "kg"]);
 export const products = pgTable("products", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
-  seller_id: varchar("seller_id", { length: 255 }).notNull(),
+  seller_id: varchar("seller_id", { length: 255 }).notNull().references(() => seller_profiles.id),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
@@ -63,4 +63,12 @@ export const products = pgTable("products", {
   updated_at: timestamp("updated_at", {
     withTimezone: true,
   }).defaultNow(),
+})
+
+export const seller_profiles = pgTable("seller_profiles", {
+id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+user_id: varchar("user_id", { length: 255 }).notNull().references(() => users.id),
+bussiness_name: varchar("business_name", { length: 255 }).notNull(),
+bussiness_address: varchar("business_address", { length: 255 }).notNull(),
+description: varchar("description", { length: 255 }),
 });
