@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
@@ -18,6 +17,7 @@ import {
 import {
   Field,
   FieldContent,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -39,6 +39,10 @@ import {
   SelectValue,
 } from "../ui/select";
 import { useVillages } from "@/hooks/useVillages";
+import axios from "axios";
+import { useEffect, useState } from "react";
+import { log } from "console";
+import { useRouter } from "next/navigation";
 
 const formSchema = z.object({
   business_name: z
@@ -50,8 +54,8 @@ const formSchema = z.object({
     .string()
     .min(20, "Deskripsi minimal 20 Karakter")
     .max(100, "Deskripsi maksimal 100 Karakter"),
-  districts_id: z.string().min(1, "Pilih Kecamatan"),
-  villages_id: z.string().min(1, "Pilih Kel/Desa"),
+  district_id: z.string().min(1, "Pilih Kecamatan"),
+  village_id: z.string().min(1, "Pilih Kel/Desa"),
 });
 type FormValues = z.infer<typeof formSchema>;
 
@@ -62,59 +66,77 @@ export function SellerOnboardingForm() {
       business_name: "",
       business_address: "",
       description: "",
-      districts_id: "",
-      villages_id: "",
+      district_id: "",
+      village_id: "",
     },
   });
-  type districtProps = {
-    id: string;
-    name: string;
-  };
   const idKecamatan = useWatch({
     control: form.control,
-    name: "districts_id",
+    name: "district_id",
   });
+  useEffect(() => {
+    form.setValue("village_id", "");
+  }, [idKecamatan]);
   console.log();
-
+  const router = useRouter();
   const { data: districtsData } = useDistricts();
   const { data: villagesData } = useVillages(idKecamatan);
   console.log(villagesData);
 
+  type districtProps = {
+    id: string;
+    name: string;
+  };
   const filteredDistrictData: districtProps[] =
     districtsData?.data?.value?.map((item: districtProps) => ({
       id: item.id.toString(),
       name: item.name,
     })) || [];
 
-  function onSubmit(data: z.infer<typeof formSchema>) {
-    toast("You submitted the following values:", {
-      description: (
-        <pre className="mt-2 w-[320px] overflow-x-auto rounded-md bg-code p-4 text-code-foreground">
-          <code>{JSON.stringify(data, null, 2)}</code>
-        </pre>
-      ),
-      position: "bottom-right",
-      classNames: {
-        content: "flex flex-col gap-2",
-      },
-      style: {
-        "--border-radius": "calc(var(--radius)  + 4px)",
-      } as React.CSSProperties,
-    });
+  async function onSubmit(data: z.infer<typeof formSchema>) {
+    console.log(data);
+
+    try {
+      const response = await axios.post("/api/seller-profiles", {
+        ...data,
+        business_name: data.business_name,
+        business_address: data.business_address,
+        description: data.description,
+        district_id: data.district_id,
+        village_id: data.village_id,
+      });
+
+      toast.success(
+        response.data?.message || "Profil penjual berhasil dibuat!",
+      );
+      form.reset();
+      router.push("/dashboard");
+    } catch (error) {
+      let message = "Gagal membuat produk";
+      if (axios.isAxiosError(error)) {
+        // Di dalam blok ini, TypeScript tahu 'error' adalah AxiosError
+        message = error.response?.data?.message || message;
+      } else if (error instanceof Error) {
+        // Ini untuk error umum JavaScript (misal typo kode/runtime error)
+        message = error.message;
+      }
+
+      toast.error(message);
+    }
   }
 
   return (
     <Card className="w-full sm:max-w-md my-10">
       <CardHeader className="justify-center text-center">
         <CardTitle className="text-2xl font-bold text-cengkeh-brown">
-          Lengkapi data
+          Data kamu belung lengkap!
         </CardTitle>
         <CardDescription className="text-cengkeh-brown">
           Isi detail informasi tentang toko anda untuk mulai menjual.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form id="form-rhf-demo" onSubmit={form.handleSubmit(onSubmit)}>
+        <form id="formOnboarding" onSubmit={form.handleSubmit(onSubmit)}>
           <FieldGroup>
             <Controller
               name="business_name"
@@ -136,7 +158,7 @@ export function SellerOnboardingForm() {
               )}
             />
             <Controller
-              name="districts_id"
+              name="district_id"
               control={form.control}
               render={({ field, fieldState }) => (
                 <Field
@@ -174,7 +196,7 @@ export function SellerOnboardingForm() {
             />
 
             <Controller
-              name="villages_id"
+              name="village_id"
               control={form.control}
               render={({ field, fieldState }) => (
                 <Field
@@ -191,6 +213,7 @@ export function SellerOnboardingForm() {
                     name={field.name}
                     value={field.value}
                     onValueChange={field.onChange}
+                    disabled={!idKecamatan}
                   >
                     <SelectTrigger
                       id="districts"
@@ -209,9 +232,15 @@ export function SellerOnboardingForm() {
                       )}
                     </SelectContent>
                   </Select>
+                  {!idKecamatan && (
+                    <FieldDescription>
+                      Silahkan pilih kecamatan terlebih dahulu!
+                    </FieldDescription>
+                  )}
                 </Field>
               )}
             />
+
             <Controller
               name="business_address"
               control={form.control}
@@ -224,7 +253,7 @@ export function SellerOnboardingForm() {
                     {...field}
                     id="business_address"
                     aria-invalid={fieldState.invalid}
-                    placeholder="Masukkan alamat lengkap ..."
+                    placeholder="Alamat lengkap Jl, RT, RW, Kodepos ..."
                     autoComplete="off"
                   />
                   {fieldState.invalid && (
@@ -268,7 +297,7 @@ export function SellerOnboardingForm() {
           <Button type="button" variant="outline" onClick={() => form.reset()}>
             Reset
           </Button>
-          <Button type="submit" form="form-rhf-demo">
+          <Button type="submit" form="formOnboarding">
             Submit
           </Button>
         </Field>

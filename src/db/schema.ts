@@ -14,10 +14,10 @@ export const roleEnum = pgEnum("user_role", ["admin", "pembeli", "penjual"]);
 // table user
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
-  username: varchar("username").notNull().unique(),
-  email: varchar("email").notNull().unique(),
-  passwordHash: varchar("password_hash", { length: 60 }).notNull(),
-  avatarUrl: varchar("avatar_url"),
+  username: text("username").notNull().unique(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  avatarUrl: text("avatar_url"),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   role: roleEnum("role").default("pembeli").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -35,9 +35,11 @@ export const users = pgTable("users", {
 export const weightUnitEnum = pgEnum("weight_unit", ["gram", "kg"]);
 export const products = pgTable("products", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
-  seller_id: varchar("seller_id", { length: 255 }).notNull().references(() => seller_profiles.id),
-  slug: varchar("slug", { length: 255 }).notNull().unique(),
-  title: varchar("title", { length: 255 }).notNull(),
+  seller_id: bigint("seller_id", { mode: "number" })
+    .notNull()
+    .references(() => seller_profiles.id),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
   description: text("description"),
   price: bigint("price", { mode: "number" }).notNull(),
   wholesale_price: bigint("wholesale_price", { mode: "number" }),
@@ -63,12 +65,16 @@ export const products = pgTable("products", {
   updated_at: timestamp("updated_at", {
     withTimezone: true,
   }).defaultNow(),
-})
+});
 
 export const seller_profiles = pgTable("seller_profiles", {
-id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
-user_id: varchar("user_id", { length: 255 }).notNull().references(() => users.id),
-bussiness_name: varchar("business_name", { length: 255 }).notNull(),
-bussiness_address: varchar("business_address", { length: 255 }).notNull(),
-description: varchar("description", { length: 255 }),
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  user_id: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  business_name: text("business_name").notNull(),
+  business_address: text("business_address").notNull(),
+  district_id: text("district_id").notNull(),
+  village_id: text("village_id").notNull(),
+  description: text("description"),
 });
