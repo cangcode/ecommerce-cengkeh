@@ -5,7 +5,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Mengubah angka murni menjadi format Rupiah (Contoh: 1000 -> "Rp 1.000")
 export const formatRupiah = (value: number | string): string => {
   if (value === undefined || value === null || value === "") return "";
 

@@ -45,6 +45,7 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import axios from "axios";
 
 export const formSchema = z
   .object({
@@ -141,12 +142,8 @@ export function AddProductForm() {
       slug: `${slugify(data.title)}`,
     };
 
-    const response = await fetch("/api/products", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    try {
+      const response = await axios.post("/api/products", {
         seller_id: payload.seller_id,
         slug: payload.slug,
         title: payload.title,
@@ -161,21 +158,25 @@ export function AddProductForm() {
               wholesale_qty: payload.wholesale_qty,
             }
           : {}),
-      }),
-    });
+      });
 
-    const result = await response.json();
+      toast.success(response.data?.message || "Produk berhasil dibuat!");
+      form.reset();
+    } catch (error) {
+      let message = "Gagal membuat produk";
 
-    if (!response.ok) {
-      const message = result?.message || "Gagal membuat produk";
+      // Periksa apakah ini benar-benar error dari Axios
+      if (axios.isAxiosError(error)) {
+        // Di dalam blok ini, TypeScript tahu 'error' adalah AxiosError
+        message = error.response?.data?.message || message;
+      } else if (error instanceof Error) {
+        // Ini untuk error umum JavaScript (misal typo kode/runtime error)
+        message = error.message;
+      }
+
       setSubmitError(message);
       toast.error(message);
-      return;
     }
-
-    toast.success("Produk berhasil ditambahkan");
-    form.reset();
-    console.log(result);
   }
 
   const handleDelete = async (publicId: string) => {
