@@ -58,37 +58,3 @@ export async function GET(
     );
   }
 }
-
-// Handle request POST (Contoh jika ingin menambah kecamatan baru ke kabupaten ini)
-export async function POST(
-  request: Request,
-  { params }: { params: { regencyId: string } },
-) {
-  try {
-    const { regencyId } = params;
-
-    // Ambil data dari body request
-    const body = await request.json();
-    const { name } = body;
-
-    if (!name) {
-      return NextResponse.json(
-        { success: false, message: "Nama kecamatan wajib diisi" },
-        { status: 400 },
-      );
-    }
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: `Sukses menambahkan kecamatan baru di kabupaten ${regencyId}`,
-      },
-      { status: 201 },
-    );
-  } catch {
-    return NextResponse.json(
-      { success: false, message: "Gagal menyimpan data" },
-      { status: 500 },
-    );
-  }
-}
