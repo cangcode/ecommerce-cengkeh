@@ -1,11 +1,11 @@
 import { auth } from "@/auth";
-import HalamanPembeli from "@/components/pages/HalamanPembeli";
+import HalamanPenjual from "@/components/pages/HalamanPenjual";
 
 const page = async () => {
   const session = await auth();
 
-  if (session?.user?.role == "pembeli") return <HalamanPembeli />;
-  if (session?.user?.role == "penjual") return <HalamanPembeli />;
+  if (session?.user?.role == "pembeli") return <div>halaman pembeli</div>;
+  if (session?.user?.role == "penjual") return <HalamanPenjual />;
 };
 
 export default page;

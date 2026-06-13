@@ -5,6 +5,13 @@ import { SessionProvider } from "next-auth/react";
 import { auth } from "@/auth";
 import { Toaster } from "@/components/ui/sonner";
 
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
+import ClientProviders from "@/components/ClientProviders";
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
@@ -15,7 +22,7 @@ export const metadata: Metadata = {
   title: "Ecommerce Cengkeh",
   description: "Aplikasi penjualan cengkeh",
 };
-
+const queryClient = new QueryClient();
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -26,7 +33,9 @@ export default async function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body>
-        <SessionProvider session={session}>{children}</SessionProvider>
+        <SessionProvider session={session}>
+          <ClientProviders>{children}</ClientProviders>
+        </SessionProvider>
         <Toaster />
       </body>
     </html>

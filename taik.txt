@@ -5,13 +5,14 @@
 
 ✅ tambah preview gambar setelah di upload agar user liat 
 ✅ insert hasil add product form ke database
+✅ fitur menu pembeli dan penjual ketuker
+✅ rapikan zod dan schema
 
-fitur menu pembeli dan penjual ketuker
-rapikan zod dan schema
-tampilkan hasil add product di semua product
 bikin boarding untuk seller profiles
+tambahkan input kelurahan dan desa yang ada di enrekang dengan fitur pencarian
 
 
+tampilkan hasil add product di semua product
 
 
 - opsional 
