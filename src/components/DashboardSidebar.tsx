@@ -111,6 +111,19 @@ export async function DashboardSidebar() {
               </SidebarGroup>
             </Collapsible>
 
+            <SidebarGroup className="px-2">
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild className="font-semibold">
+                    <Link href="/dashboard/store-profile">
+                      <Store className="size-4!" />
+                      Profil Toko
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+
             {/* <SidebarGroup className="px-2">
               <SidebarMenu>
                 <SidebarMenuItem>
@@ -142,9 +155,9 @@ export async function DashboardSidebar() {
             <SidebarGroup className="px-2">
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild className="font-semibold text-md">
+                  <SidebarMenuButton asChild className="font-semibold">
                     <Link href="/dashboard">
-                      <LayoutDashboard className="size-6!" />
+                      <LayoutDashboard className="size-4!" />
                       Dashboard
                     </Link>
                   </SidebarMenuButton>
@@ -152,45 +165,42 @@ export async function DashboardSidebar() {
               </SidebarMenu>
             </SidebarGroup>
 
-            <SidebarGroup className="px-2 gap-5">
+            <SidebarGroup className="px-2">
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild className="font-semibold text-md">
+                  <SidebarMenuButton asChild className="font-semibold">
                     <Link href="/dashboard/order-list">
-                      <Package className="size-6!" /> Lihat Produk
+                      <Package className="size-4!" />
+                      Lihat Produk
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
-
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild className="font-semibold text-md">
+                  <SidebarMenuButton asChild className="font-semibold">
                     <Link href="/dashboard/order-list">
-                      {" "}
-                      <ClipboardList className="size-6!" />
+                      <ClipboardList className="size-4!" />
                       Daftar Pesanan
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
-
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild className="font-semibold size-md">
+                  <SidebarMenuButton asChild className="font-semibold">
                     <Link href="/dashboard/mountly-reports">
-                      <TrendingUp className="size-6!" />
+                      <TrendingUp className="size-4!" />
                       Laporan Bulanan
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
-
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild className="font-semibold size-md">
+                  <SidebarMenuButton asChild className="font-semibold">
                     <Link href="/dashboard/mountly-reports">
-                      <Store className="size-6!" />
+                      <Store className="size-4!" />
                       Profile Toko
                     </Link>
                   </SidebarMenuButton>

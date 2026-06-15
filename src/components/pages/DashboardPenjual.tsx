@@ -11,7 +11,7 @@ type Props = {
   stats: DashboardStats;
 };
 
-const HalamanPenjual = async ({ session, stats }: Props) => {
+const DashboardPenjual = async ({ session, stats }: Props) => {
   if (!stats) {
     return (
       <div className="flex min-h-svh items-center justify-center px-4 py-8 md:px-10">
@@ -212,4 +212,4 @@ const HalamanPenjual = async ({ session, stats }: Props) => {
   );
 };
 
-export default HalamanPenjual;
+export default DashboardPenjual;

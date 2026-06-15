@@ -12,7 +12,7 @@ import {
 import { Rocket, ShoppingCart, ClipboardList, Lock } from "lucide-react";
 
 const STORAGE_KEY = "announcement_seen_version";
-const UPDATE_VERSION = 1;
+const UPDATE_VERSION = 2;
 
 const features = [
   {
@@ -29,9 +29,8 @@ const features = [
   },
   {
     icon: ClipboardList,
-    title: "Daftar Pesanan",
-    description:
-      "Lihat dan kelola semua pesanan masuk dengan sistem yang lebih terstruktur.",
+    title: "Profil Toko",
+    description: "Fitur untuk mengelola informasi tentang profil toko anda",
   },
 ];
 
