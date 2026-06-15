@@ -20,12 +20,19 @@ export async function createSellerProfile(
   try {
     const validated = createSellerProfileSchema.parse(data);
 
-    await db.insert(seller_profiles).values({
-      user_id: session.user.id,
-      ...validated,
-    });
+    const [profile] = await db
+      .insert(seller_profiles)
+      .values({
+        user_id: session.user.id,
+        ...validated,
+      })
+      .returning({ id: seller_profiles.id });
 
-    return { success: true, message: "Profil berhasil dibuat!" };
+    return {
+      success: true,
+      message: "Profil berhasil dibuat!",
+      id: profile.id,
+    };
   } catch (error) {
     const err = error as Error;
     return {
@@ -42,7 +49,5 @@ export async function checkHasSellerProfile(userId: string) {
     .where(eq(seller_profiles.user_id, userId))
     .limit(1);
 
-  const hasProfile = !!profile;
-
-  return hasProfile;
+  return profile;
 }

@@ -6,8 +6,8 @@ export const createProductSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
   price: z.number().positive(),
-  wholesale_price: z.number().positive(),
-  wholesale_qty: z.number().int().positive(),
+  wholesale_price: z.number().positive().optional(),
+  wholesale_qty: z.number().int().positive().optional(),
   weight_unit: z.enum(["gram", "kg"]),
   stock: z.number().int().positive(),
   image_url: z.array(
