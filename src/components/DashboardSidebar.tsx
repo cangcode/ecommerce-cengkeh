@@ -17,10 +17,10 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import {
-  ChevronDown,
-  ChevronLeft,
+  ArrowLeft,
   ChevronRight,
   ClipboardList,
+  LayoutDashboard,
   Package,
   Store,
   TrendingUp,
@@ -41,6 +41,15 @@ export async function DashboardSidebar() {
     <Sidebar>
       {/* header */}
       <SidebarHeader>
+        <div className="flex items-center justify-between">
+          <Link
+            href="/"
+            className="flex items-center gap-2 text-sm text-cengkeh-brown hover:text-cengkeh-brown/90 transition-colors"
+          >
+            <ArrowLeft className="size-4" />
+            <span>Beranda</span>
+          </Link>
+        </div>
         <div className="rounded-md py-5 text-cengkeh-brown flex gap-3 items-center">
           <div className="size-10 rounded-full bg-cengkeh-brown"></div>
           <div className="flex flex-col font-bold">
@@ -53,8 +62,21 @@ export async function DashboardSidebar() {
       </SidebarHeader>
       {session?.user.role === "penjual" ? (
         <>
-          {/* sidebar pembeli */}
+          {/* sidebar penjual */}
           <SidebarContent>
+            <SidebarGroup className="px-2">
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild className="font-semibold">
+                    <Link href="/dashboard">
+                      <LayoutDashboard className="size-4!" />
+                      Dashboard
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+
             <Collapsible defaultOpen className="group/collapsible px-2">
               <SidebarGroup className="p-0">
                 <SidebarGroupLabel
@@ -62,6 +84,7 @@ export async function DashboardSidebar() {
                   className="px-0 font-semibold text-cengkeh-brown"
                 >
                   <CollapsibleTrigger className="flex w-full items-center px-2 py-1 text-cengkeh-brown hover:bg-cengkeh-brown! hover:text-cengkeh-beige text-opacity active:bg-cengkeh-brown active:text-cengkeh-beige">
+                    <Package className="size-4! mr-2" />
                     Produk
                     <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
                   </CollapsibleTrigger>
@@ -88,11 +111,14 @@ export async function DashboardSidebar() {
               </SidebarGroup>
             </Collapsible>
 
-            <SidebarGroup className="px-2">
+            {/* <SidebarGroup className="px-2">
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild className="font-semibold">
-                    <Link href="/dashboard/order-list">Daftar Pesanan</Link>
+                    <Link href="/dashboard/order-list">
+                      <ClipboardList className="size-4!" />
+                      Daftar Pesanan
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -100,18 +126,32 @@ export async function DashboardSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild className="font-semibold">
                     <Link href="/dashboard/mountly-reports">
+                      <TrendingUp className="size-4!" />
                       Laporan Bulanan
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
-            </SidebarGroup>
+            </SidebarGroup> */}
           </SidebarContent>
         </>
       ) : session?.user.role === "pembeli" ? (
         <>
-          {/* sidebar penjual */}
+          {/* sidebar pembeli */}
           <SidebarContent>
+            <SidebarGroup className="px-2">
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild className="font-semibold text-md">
+                    <Link href="/dashboard">
+                      <LayoutDashboard className="size-6!" />
+                      Dashboard
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+
             <SidebarGroup className="px-2 gap-5">
               <SidebarMenu>
                 <SidebarMenuItem>

@@ -6,6 +6,7 @@ import z, { object, string } from "zod";
 import { seller_profiles } from "./db/schema";
 import { db } from ".";
 import { eq } from "drizzle-orm";
+import { checkHasSellerProfile } from "./db/data/seller-profiles/seller-profiles.action";
 
 export const signInSchema = object({
   email: z.email({ message: "Format email tidak valid" }),
@@ -42,21 +43,28 @@ export const authConfig = {
         if (!user || !isPasswordValid) {
           return null;
         }
+        const sellerProfile = await checkHasSellerProfile(user?.id);
 
         return {
           id: user.id,
           name: user.username,
           email: user.email,
-          role: user.role, // Anda bisa menyertakan role jika dibutuhkan nanti
+          role: user.role,
+          seller_id: sellerProfile?.id || null,
         };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      if (trigger === "update") {
+        // Apapun yang dikirim lewat update(), tangkap di sini
+        return { ...token, ...session }; // merge semua field baru ke token
+      }
       if (user) {
         token.role = user.role;
         token.id = user.id;
+        token.seller_id = user.seller_id;
       }
 
       return token;
@@ -66,11 +74,12 @@ export const authConfig = {
       if (session.user) {
         session.user.role = (token.role ?? "pembeli") as string;
         session.user.id = (token.id || token.id) as string;
+        session.user.seller_id = token.seller_id as number;
       }
       return session;
     },
   },
   pages: {
-    signIn: "/login", // Mengalihkan ke halaman kustom /login jika butuh autentikasi
+    signIn: "/login",
   },
 } satisfies NextAuthConfig;

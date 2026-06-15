@@ -4,6 +4,7 @@ import { products } from "@/db/schema";
 import { db } from "@/index";
 import { createProductSchema } from "./products.schema";
 import z from "zod";
+import { and, eq, sql } from "drizzle-orm";
 
 export async function createProduct(data: z.infer<typeof createProductSchema>) {
   const validated = createProductSchema.parse(data);
@@ -21,4 +22,61 @@ export async function createProduct(data: z.infer<typeof createProductSchema>) {
     image_url: validated.image_url,
   });
   return productsData;
+}
+
+export async function getProducts({
+  search,
+  page,
+  seller_id,
+}: {
+  search: string;
+  page: number;
+  seller_id: number;
+}) {
+  const normalizedSearch = search.trim().replace(/\s+/g, " ");
+  const normalizedSearchNoSpace = normalizedSearch
+    .replace(/\s+/g, "")
+    .toLowerCase();
+
+  const whereCondition = normalizedSearchNoSpace
+    ? and(
+        eq(products.seller_id, seller_id),
+        sql`regexp_replace(lower(${products.title}), '\\s+', '', 'g') LIKE ${`%${normalizedSearchNoSpace}%`}`,
+      )
+    : eq(products.seller_id, seller_id);
+
+  const result = await db
+    .select()
+    .from(products)
+    .where(whereCondition)
+    .limit(10)
+    .offset((page - 1) * 10);
+
+  return result;
+}
+
+export async function getProductBySlug(slug: string) {
+  const [product] = await db
+    .select()
+    .from(products)
+    .where(eq(products.slug, slug))
+    .limit(1);
+
+  return product ?? null;
+}
+
+export async function updateProduct(
+  slug: string,
+  data: Partial<z.infer<typeof createProductSchema>>,
+) {
+  const [updated] = await db
+    .update(products)
+    .set({
+      ...data,
+      updated_at: new Date(),
+    })
+    .where(eq(products.slug, slug))
+    .returning();
+
+  return updated ?? null;
 }

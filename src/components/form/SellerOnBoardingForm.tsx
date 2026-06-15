@@ -43,6 +43,8 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 import { log } from "console";
 import { useRouter } from "next/navigation";
+import { unstable_update } from "@/auth";
+import { useSession } from "next-auth/react";
 
 const formSchema = z.object({
   business_name: z
@@ -79,6 +81,7 @@ export function SellerOnboardingForm() {
   }, [idKecamatan]);
   console.log();
   const router = useRouter();
+  const { update, data: session } = useSession();
   const { data: districtsData } = useDistricts();
   const { data: villagesData } = useVillages(idKecamatan);
   console.log(villagesData);
@@ -105,6 +108,8 @@ export function SellerOnboardingForm() {
         district_id: data.district_id,
         village_id: data.village_id,
       });
+      await update({ seller_id: response.data.id });
+      console.log("sesion baru :", session);
 
       toast.success(
         response.data?.message || "Profil penjual berhasil dibuat!",

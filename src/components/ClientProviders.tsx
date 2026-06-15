@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import AnnouncementModal from "./AnnouncementModal";
 
 export default function ClientProviders({
   children,
@@ -14,6 +15,9 @@ export default function ClientProviders({
   const [queryClient] = useState(() => new QueryClient());
 
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      {children}
+      <AnnouncementModal />
+    </QueryClientProvider>
   );
 }

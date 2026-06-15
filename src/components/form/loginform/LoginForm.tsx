@@ -6,12 +6,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import Link from "next/link";
 
 const loginSchema = z.object({
-  email: z.email("Format email tidak valid"),
+  email: z.string().email("Format email tidak valid"),
   password: z.string().min(1, "Password wajib diisi"),
 });
 
@@ -61,48 +59,64 @@ export default function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="font-inter space-y-4">
-      {authError && (
-        <div className="rounded border p-3 text-sm">{authError}</div>
-      )}
+    <div className="w-150 h-fit font-inter">
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-cengkeh-brown">Masuk Akun</h2>
+      </div>
 
-      <Field>
-        <FieldLabel htmlFor="email">Email</FieldLabel>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {authError && (
+          <div className="p-3.5 rounded-sm text-sm border bg-red-50 border-red-200 text-red-600">
+            {authError}
+          </div>
+        )}
 
-        <Input
-          id="email"
-          type="email"
-          placeholder="Masukkan email anda..."
-          {...register("email")}
-        />
+        <div>
+          <label className="block text-sm text-cengkeh-brown mb-1">Email</label>
+          <input
+            type="email"
+            placeholder="Masukkan email anda..."
+            {...register("email")}
+            className="w-full px-3 py-2 rounded-sm border bg-white/40 border-cengkeh-brown/10 shadow-sm"
+          />
+          {errors.email && (
+            <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>
+          )}
+        </div>
 
-        <FieldDescription className="text-xs text-red-500">
-          {errors.email?.message}
-        </FieldDescription>
-      </Field>
+        <div>
+          <label className="block text-sm text-cengkeh-brown mb-1">
+            Password
+          </label>
+          <input
+            type="password"
+            placeholder="Masukkan password..."
+            {...register("password")}
+            className="w-full px-3 py-2 rounded-sm border bg-white/40 border-cengkeh-brown/10 shadow-sm"
+          />
+          {errors.password && (
+            <p className="text-xs text-red-500 mt-1">
+              {errors.password.message}
+            </p>
+          )}
+        </div>
 
-      <Field>
-        <FieldLabel htmlFor="password">Password</FieldLabel>
-
-        <Input
-          id="password"
-          type="password"
-          placeholder="Masukkan password..."
-          {...register("password")}
-        />
-
-        <FieldDescription className="text-xs text-red-500">
-          {errors.password?.message}
-        </FieldDescription>
-      </Field>
-
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded bg-cengkeh-brown px-3 py-1 text-sm font-semibold text-cengkeh-beige disabled:opacity-50"
-      >
-        {isSubmitting ? "Masuk..." : "Masuk"}
-      </button>
-    </form>
+        <div className="flex items-center justify-between pt-2">
+          <Link
+            href="/register"
+            className="text-sm text-cengkeh-brown underline underline-offset-2 hover:text-cengkeh-brown/80"
+          >
+            Belum punya akun?
+          </Link>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="h-10 px-3 bg-cengkeh-brown text-cengkeh-beige rounded-sm disabled:opacity-50 cursor-pointer"
+          >
+            {isSubmitting ? "Masuk..." : "Masuk"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }

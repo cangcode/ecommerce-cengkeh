@@ -71,13 +71,11 @@ export const formSchema = z
     ),
   })
   .superRefine((data, ctx) => {
-    if (!data.is_wholesale) {
-      return;
-    }
+    if (!data.is_wholesale) return;
 
     if (!data.wholesale_price || data.wholesale_price < 1) {
       ctx.addIssue({
-        code: "custom", // 👈 Ganti langsung dengan string literal "custom"
+        code: "custom",
         path: ["wholesale_price"],
         message: "Masukkan harga grosir",
       });
@@ -85,7 +83,7 @@ export const formSchema = z
 
     if (!data.wholesale_qty || data.wholesale_qty < 1) {
       ctx.addIssue({
-        code: "custom", // 👈 Begitu juga di sini
+        code: "custom",
         path: ["wholesale_qty"],
         message: "Masukkan minimum pembelian",
       });
@@ -97,33 +95,41 @@ const weightUnit = [
   { label: "gram", value: "gram" },
 ] as const;
 
-export function AddProductForm() {
+type ProductData = {
+  slug: string;
+  title: string;
+  description: string;
+  price: number;
+  weight_unit: string;
+  stock: number;
+  wholesale_price: number | null;
+  wholesale_qty: number | null;
+  image_url: { public_id: string; secure_url: string }[];
+};
+
+export function EditProductForm({ product }: { product: ProductData }) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: "",
-      description: "",
-      price: 0,
-      weight_unit: "kg",
-      is_wholesale: false,
-      wholesale_qty: 0,
-      wholesale_price: 0,
-      stock: 0,
-      image_url: [],
+      title: product.title,
+      description: product.description,
+      price: product.price,
+      weight_unit: product.weight_unit ?? "kg",
+      is_wholesale: !!(product.wholesale_price && product.wholesale_qty),
+      wholesale_price: product.wholesale_price ?? 0,
+      wholesale_qty: product.wholesale_qty ?? 0,
+      stock: product.stock,
+      image_url: product.image_url ?? [],
     },
   });
-  const { data: session } = useSession();
 
-  // const [previewCount, setPreviewCount] = useState<number>();
+  const { data: session } = useSession();
   const weightUnitCurrentValue = form.watch("weight_unit");
   const isWholeSale = form.watch("is_wholesale");
   const [deletingPublicId, setDeletingPublicId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const imagePreviews = useWatch({
-    control: form.control,
-    name: "image_url",
-  });
+  const imagePreviews = useWatch({ control: form.control, name: "image_url" });
   const imageCount = imagePreviews?.length ?? 0;
   const remainingUploadSlots = Math.max(0, 3 - imageCount);
 
@@ -137,43 +143,34 @@ export function AddProductForm() {
     setSubmitError(null);
 
     const payload = {
-      ...data,
-      seller_id: session?.user.seller_id,
-      slug: `${slugify(data.title)}`,
+      slug: product.slug,
+      title: data.title,
+      description: data.description,
+      price: data.price,
+      weight_unit: data.weight_unit,
+      stock: data.stock,
+      image_url: data.image_url,
+      ...(data.is_wholesale
+        ? {
+            wholesale_price: data.wholesale_price,
+            wholesale_qty: data.wholesale_qty,
+          }
+        : {
+            wholesale_price: null,
+            wholesale_qty: null,
+          }),
     };
 
     try {
-      const response = await axios.post("/api/products", {
-        seller_id: payload.seller_id,
-        slug: payload.slug,
-        title: payload.title,
-        description: payload.description,
-        price: payload.price,
-        weight_unit: payload.weight_unit,
-        stock: payload.stock,
-        image_url: payload.image_url,
-        ...(payload.is_wholesale
-          ? {
-              wholesale_price: payload.wholesale_price,
-              wholesale_qty: payload.wholesale_qty,
-            }
-          : {}),
-      });
-
-      toast.success(response.data?.message || "Produk berhasil dibuat!");
-      form.reset();
+      const response = await axios.put("/api/products", payload);
+      toast.success(response.data?.message || "Produk berhasil diperbarui!");
     } catch (error) {
-      let message = "Gagal membuat produk";
-
-      // Periksa apakah ini benar-benar error dari Axios
+      let message = "Gagal memperbarui produk";
       if (axios.isAxiosError(error)) {
-        // Di dalam blok ini, TypeScript tahu 'error' adalah AxiosError
         message = error.response?.data?.message || message;
       } else if (error instanceof Error) {
-        // Ini untuk error umum JavaScript (misal typo kode/runtime error)
         message = error.message;
       }
-
       setSubmitError(message);
       toast.error(message);
     }
@@ -186,12 +183,8 @@ export function AddProductForm() {
 
       const res = await fetch("/api/cloudinary/image", {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          publicId,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicId }),
       });
 
       const data = await res.json();
@@ -226,16 +219,15 @@ export function AddProductForm() {
     <Card className="w-full ring-0 pt-0">
       <CardHeader className="mb-5 px-0">
         <CardTitle className="text-3xl font-bold text-cengkeh-brown">
-          Tambah Produk
+          Edit Produk
         </CardTitle>
         <CardDescription className="text-cengkeh-brown">
-          Isi detail informasi produk Anda di bawah ini untuk mulai menjual.
+          Ubah detail informasi produk Anda di bawah ini.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0">
         <form
-          id="form-add-product"
-          className=""
+          id="form-edit-product"
           onSubmit={form.handleSubmit(onSubmit)}
         >
           <FieldGroup>
@@ -269,12 +261,12 @@ export function AddProductForm() {
               name="description"
               control={form.control}
               render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid} className="">
+                <Field data-invalid={fieldState.invalid}>
                   <FieldLabel
-                    htmlFor="form-add-product-description"
+                    htmlFor="form-edit-product-description"
                     className="flex-col md:flex-row md:gap-2 gap-0 items-start md:items-center"
                   >
-                    Description
+                    Deskripsi
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
@@ -282,7 +274,7 @@ export function AddProductForm() {
                   <InputGroup>
                     <InputGroupTextarea
                       {...field}
-                      id="form-add-product-description"
+                      id="form-edit-product-description"
                       placeholder="Masukkan deskripsi produk disini"
                       rows={6}
                       className="min-h-24 resize-none"
@@ -299,10 +291,8 @@ export function AddProductForm() {
             />
             {/* upload gambar */}
             <CldUploadWidget
-              // key={`upload-widget-${imageCount}`}
               uploadPreset="ecommerce-cengkeh"
               onSuccess={(result) => {
-                console.log("anjay :", result);
                 const imageInfo = result.info as CloudinaryUploadWidgetInfo;
                 const prev = form.getValues("image_url") ?? [];
                 form.setValue(
@@ -314,10 +304,7 @@ export function AddProductForm() {
                       secure_url: imageInfo.secure_url,
                     },
                   ],
-                  {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                  },
+                  { shouldValidate: true, shouldDirty: true },
                 );
               }}
               options={{
@@ -336,7 +323,6 @@ export function AddProductForm() {
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                       {(imagePreviews ?? []).map((items, index) => {
                         const isDeleting = deletingPublicId === items.public_id;
-
                         return (
                           <div
                             key={items.public_id}
@@ -366,9 +352,7 @@ export function AddProductForm() {
                         type="button"
                         disabled={isUploadLimitReached}
                         onClick={() => {
-                          if (!isUploadLimitReached) {
-                            open();
-                          }
+                          if (!isUploadLimitReached) open();
                         }}
                         className="flex h-32 w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-60"
                         aria-label="Tambah gambar"
@@ -433,15 +417,12 @@ export function AddProductForm() {
                       }
                     />
                     {fieldState.invalid && (
-                      <FieldError
-                        className="text-xs"
-                        errors={[fieldState.error]}
-                      />
+                      <FieldError className="text-xs" errors={[fieldState.error]} />
                     )}
                   </Field>
                 )}
               />
-              <div className=" flex flex-col items-end justify-end pt-6 text-xs">
+              <div className="flex flex-col items-end justify-end pt-6 text-xs">
                 per
               </div>
 
@@ -449,12 +430,9 @@ export function AddProductForm() {
                 name="weight_unit"
                 control={form.control}
                 render={({ field, fieldState }) => (
-                  <Field
-                    orientation="vertical"
-                    data-invalid={fieldState.invalid}
-                  >
+                  <Field orientation="vertical" data-invalid={fieldState.invalid}>
                     <FieldContent>
-                      <FieldLabel htmlFor="form-add-product-select-weigth-unit">
+                      <FieldLabel htmlFor="form-edit-product-select-weight-unit">
                         Unit berat
                       </FieldLabel>
                       {fieldState.invalid && (
@@ -466,23 +444,17 @@ export function AddProductForm() {
                       value={field.value}
                       onValueChange={field.onChange}
                     >
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
                       <SelectTrigger
-                        id="form-add-product-select-weigth-unit"
+                        id="form-edit-product-select-weight-unit"
                         aria-invalid={fieldState.invalid}
                         className="min-w-30"
                       >
                         <SelectValue placeholder="berat" />
                       </SelectTrigger>
                       <SelectContent position="item-aligned">
-                        {weightUnit.map((weightUnit) => (
-                          <SelectItem
-                            key={weightUnit.value}
-                            value={weightUnit.value}
-                          >
-                            {weightUnit.label}
+                        {weightUnit.map((wu) => (
+                          <SelectItem key={wu.value} value={wu.value}>
+                            {wu.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -499,7 +471,7 @@ export function AddProductForm() {
                 <Field
                   orientation="responsive"
                   data-invalid={fieldState.invalid}
-                  className=" w-fit py-5"
+                  className="w-fit py-5"
                 >
                   <FieldContent>
                     <FieldLabel htmlFor="is_wholesale">
@@ -547,10 +519,7 @@ export function AddProductForm() {
                       }
                     />
                     {fieldState.invalid && (
-                      <FieldError
-                        className="text-xs"
-                        errors={[fieldState.error]}
-                      />
+                      <FieldError className="text-xs" errors={[fieldState.error]} />
                     )}
                   </Field>
                 )}
@@ -580,10 +549,7 @@ export function AddProductForm() {
                       }
                     />
                     {fieldState.invalid && (
-                      <FieldError
-                        className="text-xs"
-                        errors={[fieldState.error]}
-                      />
+                      <FieldError className="text-xs" errors={[fieldState.error]} />
                     )}
                   </Field>
                 )}
@@ -596,14 +562,14 @@ export function AddProductForm() {
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor="stock">
-                    Jumlah stock produk ({weightUnitCurrentValue})
+                    Jumlah stok produk ({weightUnitCurrentValue})
                   </FieldLabel>
                   <Input
                     {...field}
                     id="stock"
                     type="number"
                     aria-invalid={fieldState.invalid}
-                    placeholder="Jumlah stock produk"
+                    placeholder="Jumlah stok produk"
                     autoComplete="off"
                     inputMode="numeric"
                     onChange={(e) =>
@@ -613,10 +579,7 @@ export function AddProductForm() {
                     }
                   />
                   {fieldState.invalid && (
-                    <FieldError
-                      className="text-xs"
-                      errors={[fieldState.error]}
-                    />
+                    <FieldError className="text-xs" errors={[fieldState.error]} />
                   )}
                 </Field>
               )}
@@ -626,11 +589,27 @@ export function AddProductForm() {
       </CardContent>
       <CardFooter>
         <Field orientation="horizontal">
-          <Button type="button" variant="outline" onClick={() => form.reset()}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              form.reset({
+                title: product.title,
+                description: product.description,
+                price: product.price,
+                weight_unit: product.weight_unit ?? "kg",
+                is_wholesale: !!(product.wholesale_price && product.wholesale_qty),
+                wholesale_price: product.wholesale_price ?? 0,
+                wholesale_qty: product.wholesale_qty ?? 0,
+                stock: product.stock,
+                image_url: product.image_url ?? [],
+              })
+            }
+          >
             Reset
           </Button>
-          <Button type="submit" form="form-add-product">
-            Submit
+          <Button type="submit" form="form-edit-product">
+            Simpan Perubahan
           </Button>
         </Field>
       </CardFooter>
