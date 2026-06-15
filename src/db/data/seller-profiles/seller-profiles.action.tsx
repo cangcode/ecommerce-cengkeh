@@ -51,3 +51,41 @@ export async function checkHasSellerProfile(userId: string) {
 
   return profile;
 }
+
+export async function getSellerProfile(userId: string) {
+  const [profile] = await db
+    .select()
+    .from(seller_profiles)
+    .where(eq(seller_profiles.user_id, userId))
+    .limit(1);
+
+  return profile ?? null;
+}
+
+export async function updateSellerProfile(
+  userId: string,
+  data: z.infer<typeof createSellerProfileSchema>,
+) {
+  try {
+    const validated = createSellerProfileSchema.parse(data);
+
+    const [updated] = await db
+      .update(seller_profiles)
+      .set({
+        ...validated,
+      })
+      .where(eq(seller_profiles.user_id, userId))
+      .returning();
+
+    return {
+      success: true,
+      message: "Profil toko berhasil diperbarui!",
+      data: updated,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: "Gagal memperbarui profil toko.",
+    };
+  }
+}
