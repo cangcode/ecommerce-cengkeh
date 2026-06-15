@@ -3,6 +3,9 @@ import DashboardPenjual from "@/components/pages/DashboardPenjual";
 import { getDashboardStats } from "@/db/data/dashboard/dashboard.actions";
 import { redirect } from "next/navigation";
 
+// Revalidasi halaman setiap 60 detik — cegah request berulang ke Supabase
+export const revalidate = 60;
+
 const Page = async () => {
   const session = await auth();
 

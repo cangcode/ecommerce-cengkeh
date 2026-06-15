@@ -109,7 +109,9 @@ export function SellerProfileForm({ profile }: Props) {
 
     try {
       const response = await axios.put("/api/seller-profiles", data);
-      toast.success(response.data?.message || "Profil toko berhasil diperbarui!");
+      toast.success(
+        response.data?.message || "Profil toko berhasil diperbarui!",
+      );
     } catch (error) {
       let message = "Gagal memperbarui profil toko";
       if (axios.isAxiosError(error)) {
@@ -124,7 +126,7 @@ export function SellerProfileForm({ profile }: Props) {
 
   return (
     <Card className="w-full ring-0 pt-0">
-      <CardHeader className="mb-5 px-0">
+      <CardHeader className="mb-5">
         <CardTitle className="text-3xl font-bold text-cengkeh-brown">
           Profil Toko
         </CardTitle>
@@ -132,7 +134,7 @@ export function SellerProfileForm({ profile }: Props) {
           Kelola informasi profil toko Anda di bawah ini.
         </CardDescription>
       </CardHeader>
-      <CardContent className="px-0">
+      <CardContent>
         <form id="form-store-profile" onSubmit={form.handleSubmit(onSubmit)}>
           <FieldGroup>
             <Controller

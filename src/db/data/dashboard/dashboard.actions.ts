@@ -1,5 +1,6 @@
 "use server";
 
+import { unstable_cache } from "next/cache";
 import { db } from "@/index";
 import { products, seller_profiles } from "@/db/schema";
 import { eq, desc, count, sql } from "drizzle-orm";
@@ -21,9 +22,9 @@ export type DashboardStats = {
   }[];
 };
 
-export async function getDashboardStats(
+const _getDashboardStats = async (
   userId: string,
-): Promise<DashboardStats | null> {
+): Promise<DashboardStats | null> => {
   const [profile] = await db
     .select({
       id: seller_profiles.id,
@@ -37,7 +38,6 @@ export async function getDashboardStats(
 
   const sellerId = profile.id;
 
-  // ── 4 stat queries + 1 recentProducts → jalankan paralel ──
   const [totalProducts, stockResult, lowStock, outOfStock, recentProducts] =
     await Promise.all([
       db
@@ -86,4 +86,12 @@ export async function getDashboardStats(
     outOfStockCount: outOfStock[0]?.count ?? 0,
     recentProducts: recentProducts as DashboardStats["recentProducts"],
   };
-}
+};
+
+// ── Bungkus dengan unstable_cache: cache selama 60 detik ──
+// Tag: "dashboard-{userId}" → bisa di-revalidate manual via revalidateTag()
+export const getDashboardStats = async (userId: string) =>
+  unstable_cache(() => _getDashboardStats(userId), [`dashboard-${userId}`], {
+    revalidate: 60,
+    tags: [`dashboard-${userId}`],
+  })();
