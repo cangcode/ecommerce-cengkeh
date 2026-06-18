@@ -100,26 +100,27 @@ export default function ChartPage() {
   >({});
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
-  const snapLoaded = useRef(false);
+  const snapReady = useRef(false);
   const orderIdRef = useRef<string | null>(null);
 
-  // Inject Midtrans Snap script sekali saja
+  // Inject Midtrans Snap script — pakai ref untuk reliability di Vercel
   useEffect(() => {
-    if (snapLoaded.current) return;
+    if (snapReady.current) return;
+    if (document.querySelector('script[src*="snap.js"]')) {
+      // Already injected by another page
+      if ((window as any).snap) snapReady.current = true;
+      return;
+    }
+
     const script = document.createElement("script");
-    script.setAttribute(
-      "data-client-key",
-      process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY ?? "",
-    );
     script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
+    script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY ?? "");
     script.async = true;
-    script.onload = () => {
-      snapLoaded.current = true;
-    };
+
+    script.onload = () => { snapReady.current = true; };
+    script.onerror = () => console.warn("⚠️ Gagal memuat Midtrans Snap JS");
+
     document.head.appendChild(script);
-    return () => {
-      document.head.removeChild(script);
-    };
   }, []);
 
   const fetchAll = useCallback(async () => {
@@ -267,9 +268,7 @@ export default function ChartPage() {
             router.push("/dashboard/order-list");
           },
           onPending: () => {
-            toast.success(
-              "Pembayaran tertunda. Silakan selesaikan pembayaran.",
-            );
+            toast.success("Pembayaran tertunda. Silakan selesaikan pembayaran.");
             router.push("/dashboard/order-list");
           },
           onError: () => {
@@ -280,8 +279,11 @@ export default function ChartPage() {
           },
         });
       } else {
-        toast.error("Midtrans Snap belum siap. Coba lagi.");
-        router.push("/dashboard/order-list");
+        toast.error("Gateway pembayaran belum siap. Coba refresh halaman.");
+        window.open(
+          `https://app.sandbox.midtrans.com/snap/v1/transactions/${token}/redirect`,
+          "_blank",
+        );
       }
     } catch (error) {
       let message = "Gagal memproses pembayaran";
