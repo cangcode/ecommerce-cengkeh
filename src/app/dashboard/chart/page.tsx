@@ -263,7 +263,6 @@ export default function ChartPage() {
       if ((window as any).snap) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (window as any).snap.pay(token, {
-          clientKey: process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY,
           onSuccess: async () => {
             toast.success("Pembayaran berhasil!");
             await axios.post("/api/payment/update-status", {
@@ -297,7 +296,12 @@ export default function ChartPage() {
       let message = "Gagal memproses pembayaran";
       if (axios.isAxiosError(error)) {
         const data = error.response?.data;
-        console.error("🔥 RESPONSE:", error.response?.status, typeof data, data);
+        console.error(
+          "🔥 RESPONSE:",
+          error.response?.status,
+          typeof data,
+          data,
+        );
         if (typeof data === "string") {
           message = `Server error (${error.response?.status}): ${data.substring(0, 200)}`;
         } else if (data?.message) {
