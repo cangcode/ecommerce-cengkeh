@@ -107,11 +107,11 @@ export default function ChartPage() {
   useEffect(() => {
     if (snapLoaded.current) return;
     const script = document.createElement("script");
-    script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
     script.setAttribute(
       "data-client-key",
       process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY ?? "",
     );
+    script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
     script.async = true;
     script.onload = () => {
       snapLoaded.current = true;
@@ -257,6 +257,7 @@ export default function ChartPage() {
       if ((window as any).snap) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (window as any).snap.pay(token, {
+          clientKey: process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY,
           onSuccess: async () => {
             toast.success("Pembayaran berhasil!");
             await axios.post("/api/payment/update-status", {
