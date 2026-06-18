@@ -293,14 +293,22 @@ export default function ChartPage() {
         );
       }
     } catch (error) {
+      console.error("🔥 PAYMENT ERROR:", error);
       let message = "Gagal memproses pembayaran";
       if (axios.isAxiosError(error)) {
-        message = error.response?.data?.message || message;
-        console.error("Payment API error:", error.response?.data);
+        const data = error.response?.data;
+        console.error("🔥 RESPONSE:", error.response?.status, typeof data, data);
+        if (typeof data === "string") {
+          message = `Server error (${error.response?.status}): ${data.substring(0, 200)}`;
+        } else if (data?.message) {
+          message = data.message;
+        } else {
+          message = `HTTP ${error.response?.status}: ${error.message}`;
+        }
+        toast.error(message, { duration: 12000 });
       } else {
-        console.error("Payment error:", error);
+        toast.error(String(error), { duration: 12000 });
       }
-      toast.error(message);
     } finally {
       setPaying(false);
     }
