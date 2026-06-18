@@ -114,10 +114,15 @@ export default function ChartPage() {
 
     const script = document.createElement("script");
     script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
-    script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY ?? "");
+    script.setAttribute(
+      "data-client-key",
+      process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY ?? "",
+    );
     script.async = true;
 
-    script.onload = () => { snapReady.current = true; };
+    script.onload = () => {
+      snapReady.current = true;
+    };
     script.onerror = () => console.warn("⚠️ Gagal memuat Midtrans Snap JS");
 
     document.head.appendChild(script);
@@ -268,7 +273,9 @@ export default function ChartPage() {
             router.push("/dashboard/order-list");
           },
           onPending: () => {
-            toast.success("Pembayaran tertunda. Silakan selesaikan pembayaran.");
+            toast.success(
+              "Pembayaran tertunda. Silakan selesaikan pembayaran.",
+            );
             router.push("/dashboard/order-list");
           },
           onError: () => {
@@ -287,8 +294,12 @@ export default function ChartPage() {
       }
     } catch (error) {
       let message = "Gagal memproses pembayaran";
-      if (axios.isAxiosError(error))
+      if (axios.isAxiosError(error)) {
         message = error.response?.data?.message || message;
+        console.error("Payment API error:", error.response?.data);
+      } else {
+        console.error("Payment error:", error);
+      }
       toast.error(message);
     } finally {
       setPaying(false);
@@ -634,7 +645,7 @@ export default function ChartPage() {
                   );
                 })}
                 <Separator />
-                {selectedAddress && (
+                {selectedAddress ? (
                   <div className="rounded-lg bg-cengkeh-brown/5 p-2 text-xs">
                     <p className="font-medium text-cengkeh-brown">
                       <MapPin className="size-3 inline mr-1" />
@@ -644,6 +655,16 @@ export default function ChartPage() {
                       {selectedAddress.recipient_name} —{" "}
                       {selectedAddress.address}
                     </p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                    ⚠️ Belum pilih alamat tujuan.{" "}
+                    <a
+                      href="/dashboard/addresses/add"
+                      className="underline font-medium"
+                    >
+                      Tambah alamat dulu
+                    </a>
                   </div>
                 )}
                 <Separator />
@@ -657,7 +678,7 @@ export default function ChartPage() {
                 </div>
                 <AppButton
                   className="mt-2 flex justify-center font-semibold w-full gap-2"
-                  disabled={!selectedAddressId || paying}
+                  disabled={paying}
                   onClick={handleCheckout}
                 >
                   {paying ? "Memproses..." : "Lanjutkan ke Pembayaran"}
