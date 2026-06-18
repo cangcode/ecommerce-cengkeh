@@ -139,7 +139,7 @@ const DashboardPenjual = async ({ session, stats }: Props) => {
                     key={product.id}
                     className="border-b border-cengkeh-brown/5 last:border-0"
                   >
-                    <td className="py-3">
+                    <td className="py-3 pr-3">
                       <div className="flex items-center gap-3">
                         <div className="size-10 rounded-lg bg-cengkeh-brown/10 overflow-hidden shrink-0">
                           {product.image_url?.[0]?.secure_url ? (
@@ -161,13 +161,13 @@ const DashboardPenjual = async ({ session, stats }: Props) => {
                         </span>
                       </div>
                     </td>
-                    <td className="py-3 text-cengkeh-darker-brown">
+                    <td className="py-3 text-cengkeh-darker-brown min-w-25">
                       {formatRupiah(product.price)}
                     </td>
-                    <td className="py-3 text-cengkeh-darker-brown">
+                    <td className="py-3 text-cengkeh-darker-brown min-w-20">
                       {product.stock} {product.weight_unit}
                     </td>
-                    <td className="py-3">
+                    <td className="py-3 min-w-25">
                       {product.stock === 0 ? (
                         <Badge
                           variant="outline"

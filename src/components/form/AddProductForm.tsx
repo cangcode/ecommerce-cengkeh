@@ -224,7 +224,7 @@ export function AddProductForm() {
 
   return (
     <Card className="w-full ring-0 pt-0">
-      <CardHeader className="mb-5 px-0">
+      <CardHeader className="mb-5">
         <CardTitle className="text-3xl font-bold text-cengkeh-brown">
           Tambah Produk
         </CardTitle>
@@ -232,7 +232,7 @@ export function AddProductForm() {
           Isi detail informasi produk Anda di bawah ini untuk mulai menjual.
         </CardDescription>
       </CardHeader>
-      <CardContent className="px-0">
+      <CardContent>
         <form
           id="form-add-product"
           className=""

@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { createProduct, updateProduct } from "@/db/data/products/product.actions";
+import {
+  createProduct,
+  updateProduct,
+} from "@/db/data/products/product.actions";
+import { revalidatePath } from "next/cache";
+import { auth } from "@/auth";
 import axios from "axios";
 import { products } from "@/db/schema";
 import { db } from "@/index";
@@ -8,8 +13,14 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
+    const session = await auth();
     const body = await req.json();
     const result = await createProduct(body);
+
+    // Invalidasi cache dashboard user ini
+    if (session?.user?.id) {
+      revalidatePath("/dashboard");
+    }
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
@@ -27,6 +38,7 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
+    const session = await auth();
     const body = await req.json();
     const { slug, ...data } = body;
 
@@ -44,6 +56,11 @@ export async function PUT(req: Request) {
         { success: false, message: "Produk tidak ditemukan." },
         { status: 404 },
       );
+    }
+
+    // Invalidasi cache dashboard user ini
+    if (session?.user?.id) {
+      revalidatePath("/dashboard");
     }
 
     return NextResponse.json(

@@ -1,5 +1,6 @@
 "use server";
 
+import { unstable_cache } from "next/cache";
 import { db } from "@/index";
 import { products, seller_profiles } from "@/db/schema";
 import { eq, desc, count, sql } from "drizzle-orm";
@@ -21,23 +22,9 @@ export type DashboardStats = {
   }[];
 };
 
-export async function getDashboardStats(
-  userId: string,
-): Promise<DashboardStats | null> {
-  const [profile] = await db
-    .select({
-      id: seller_profiles.id,
-      businessName: seller_profiles.business_name,
-    })
-    .from(seller_profiles)
-    .where(eq(seller_profiles.user_id, userId))
-    .limit(1);
-
-  if (!profile) return null;
-
-  const sellerId = profile.id;
-
-  // ── 4 stat queries + 1 recentProducts → jalankan paralel ──
+const _getDashboardStatsBySellerId = async (
+  sellerId: number,
+): Promise<DashboardStats> => {
   const [totalProducts, stockResult, lowStock, outOfStock, recentProducts] =
     await Promise.all([
       db
@@ -79,11 +66,36 @@ export async function getDashboardStats(
     ]);
 
   return {
-    businessName: profile.businessName,
+    businessName: "", // akan diisi oleh caller
     totalProducts: totalProducts[0]?.count ?? 0,
     totalStock: Number(stockResult[0]?.total ?? 0),
     lowStockCount: lowStock[0]?.count ?? 0,
     outOfStockCount: outOfStock[0]?.count ?? 0,
     recentProducts: recentProducts as DashboardStats["recentProducts"],
   };
+};
+
+/** Ambil seller_id + business_name — TIDAK di-cache */
+export async function getSellerProfileForDashboard(userId: string) {
+  const [profile] = await db
+    .select({
+      id: seller_profiles.id,
+      businessName: seller_profiles.business_name,
+    })
+    .from(seller_profiles)
+    .where(eq(seller_profiles.user_id, userId))
+    .limit(1);
+
+  return profile ?? null;
 }
+
+/** Ambil statistik dashboard — di-cache dengan tag */
+export const getDashboardStats = async (sellerId: number) =>
+  unstable_cache(
+    () => _getDashboardStatsBySellerId(sellerId),
+    [`dashboard-stats-${sellerId}`],
+    {
+      revalidate: 60,
+      tags: [`dashboard-stats-${sellerId}`],
+    },
+  )();

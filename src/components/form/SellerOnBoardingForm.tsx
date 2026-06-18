@@ -100,6 +100,13 @@ export function SellerOnboardingForm() {
     console.log(data);
 
     try {
+      const districtName =
+        filteredDistrictData.find((d) => d.id === data.district_id)?.name ?? "";
+      const villageName =
+        villagesData?.data?.value?.find(
+          (v: { id: string; name: string }) => v.id === data.village_id,
+        )?.name ?? "";
+
       const response = await axios.post("/api/seller-profiles", {
         ...data,
         business_name: data.business_name,
@@ -107,6 +114,8 @@ export function SellerOnboardingForm() {
         description: data.description,
         district_id: data.district_id,
         village_id: data.village_id,
+        district_name: districtName,
+        village_name: villageName,
       });
       await update({ seller_id: response.data.id });
       console.log("sesion baru :", session);

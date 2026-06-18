@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
+import { SellerProfileForm } from "@/components/form/SellerProfileForm";
 import { getSellerProfile } from "@/db/data/seller-profiles/seller-profiles.action";
 import { redirect } from "next/navigation";
-import { SellerProfileForm } from "@/components/form/SellerProfileForm";
 
 const Page = async () => {
   const session = await auth();

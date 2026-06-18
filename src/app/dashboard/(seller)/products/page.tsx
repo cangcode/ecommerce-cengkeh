@@ -47,7 +47,7 @@ export default function ProductList() {
   }, [search, page, session?.user?.seller_id]);
 
   return (
-    <div className="space-y-5 px-4 py-8 md:px-10">
+    <div className="space-y-5 px-8 py-8 md:px-14">
       <div className="space-y-1">
         <h1 className="text-cengkeh-brown font-bold text-3xl">Semua Product</h1>
         <p className="text-xs text-cengkeh-brown">
@@ -79,43 +79,53 @@ export default function ProductList() {
       </div>
 
       {/* List produk */}
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5">
         {data.map((product) => (
           <Card
-            className="relative mx-auto w-full max-w-sm pt-0"
+            className="relative mx-auto w-full max-w-sm py-0 overflow-hidden"
             key={product.id}
           >
             <div className="absolute inset-0 z-30 aspect-video bg-black/35" />
             <img
               src={product.image_url[0].secure_url}
-              alt="Event cover"
+              alt={product.title}
               className="relative z-20 aspect-video w-full object-cover brightness-60 grayscale dark:brightness-40"
             />
-            <CardHeader>
-              <CardTitle>{product.title}</CardTitle>
-              <CardDescription>{product.description}</CardDescription>
-              <div className="flex gap-2 pt-2">
-                <Badge>{formatRupiah(product.price)}</Badge>
-                <span>/</span>
-                <Badge>{product.weight_unit}</Badge>
+            <CardHeader className="p-3 md:px-3 space-y-1.5">
+              <CardTitle className="text-sm sm:text-base leading-tight line-clamp-1">
+                {product.title}
+              </CardTitle>
+              <CardDescription className="text-[10px] sm:text-xs line-clamp-2">
+                {product.description}
+              </CardDescription>
+              <div className="flex gap-1.5 pt-1.5 flex-wrap">
+                <Badge className="text-[10px] sm:text-xs px-1.5 py-0">
+                  {formatRupiah(product.price)}
+                </Badge>
+                <span className="text-[10px] sm:text-xs text-cengkeh-brown/60 self-center">
+                  /
+                </span>
+                <Badge className="text-[10px] sm:text-xs px-1.5 py-0">
+                  {product.weight_unit}
+                </Badge>
               </div>
             </CardHeader>
-            <CardFooter className="flex justify-between items-center gap-2">
-              <div className="text-md">
-                stock :{" "}
+            <CardFooter className="flex xs:flex-row justify-between items-start xs:items-center gap-2 p-3 sm:p-6 pt-0 sm:pt-0">
+              <div className="text-[11px] sm:text-sm text-cengkeh-darker-brown">
+                stock:{" "}
                 <span className="font-bold">
                   {product.stock}&nbsp;
                   {product.weight_unit}
                 </span>
               </div>
-              <div className="flex gap-2">
-                <Button asChild>
+              <div className="flex gap-1.5 self-end xs:self-auto">
+                <Button size="icon-sm" className="size-7 sm:size-8" asChild>
                   <Link href={`/dashboard/products/${product.slug}/edit`}>
-                    <PenBox />
+                    <PenBox className="size-3.5 sm:size-4" />
                   </Link>
                 </Button>
-                <Button>
-                  <Trash />
+                <Button size="icon-sm" className="size-7 sm:size-8">
+                  <Trash className="size-3.5 sm:size-4" />
                 </Button>
               </div>
             </CardFooter>
