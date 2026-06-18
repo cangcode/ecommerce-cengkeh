@@ -9,28 +9,55 @@ import {
   DialogFooter,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Rocket, ShoppingCart, ClipboardList, Lock } from "lucide-react";
+import {
+  Rocket,
+  ShoppingCart,
+  MapPinned,
+  CreditCard,
+  Package2,
+  Store,
+  Truck,
+} from "lucide-react";
 
 const STORAGE_KEY = "announcement_seen_version";
 const UPDATE_VERSION = 2;
 
 const features = [
   {
-    icon: Lock,
-    title: "Login & Register Akun",
+    icon: Store,
+    title: "Dashboard Penjual Lengkap",
     description:
-      "Manajeman akun yang aman, dengan 2 role yaitu pembeli dan penjual",
+      "Statistik toko real-time — total produk, stok rendah, produk terbaru.",
   },
   {
     icon: ShoppingCart,
-    title: "Dashboad Penjual",
+    title: "Keranjang & Checkout",
     description:
-      "Kelola produk dengan mudah — tambah, edit, dan atur stok barang dagangan Anda.",
+      "Tambah produk ke keranjang, pilih harga grosir/satuan, atur jumlah.",
   },
   {
-    icon: ClipboardList,
-    title: "Profil Toko",
-    description: "Fitur untuk mengelola informasi tentang profil toko anda",
+    icon: Truck,
+    title: "Ongkir Per Toko",
+    description:
+      "Metode Ambil Sendiri (gratis) atau Antarkan (Rp 15.000/kg), otomatis dihitung per toko.",
+  },
+  {
+    icon: MapPinned,
+    title: "Alamat Pengiriman",
+    description:
+      "Simpan & kelola banyak alamat, atur alamat utama, pilih kecamatan/desa.",
+  },
+  {
+    icon: CreditCard,
+    title: "Pembayaran Midtrans",
+    description:
+      "Checkout aman via Snap Midtrans — transfer bank, QRIS, e-wallet, dan lainnya.",
+  },
+  {
+    icon: Package2,
+    title: "Riwayat Pesanan",
+    description:
+      "Pantau status pesanan, lihat detail per toko, bayar ulang jika pending.",
   },
 ];
 
