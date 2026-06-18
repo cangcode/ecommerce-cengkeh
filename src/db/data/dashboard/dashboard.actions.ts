@@ -22,22 +22,9 @@ export type DashboardStats = {
   }[];
 };
 
-const _getDashboardStats = async (
-  userId: string,
-): Promise<DashboardStats | null> => {
-  const [profile] = await db
-    .select({
-      id: seller_profiles.id,
-      businessName: seller_profiles.business_name,
-    })
-    .from(seller_profiles)
-    .where(eq(seller_profiles.user_id, userId))
-    .limit(1);
-
-  if (!profile) return null;
-
-  const sellerId = profile.id;
-
+const _getDashboardStatsBySellerId = async (
+  sellerId: number,
+): Promise<DashboardStats> => {
   const [totalProducts, stockResult, lowStock, outOfStock, recentProducts] =
     await Promise.all([
       db
@@ -79,7 +66,7 @@ const _getDashboardStats = async (
     ]);
 
   return {
-    businessName: profile.businessName,
+    businessName: "", // akan diisi oleh caller
     totalProducts: totalProducts[0]?.count ?? 0,
     totalStock: Number(stockResult[0]?.total ?? 0),
     lowStockCount: lowStock[0]?.count ?? 0,
@@ -88,10 +75,27 @@ const _getDashboardStats = async (
   };
 };
 
-// ── Bungkus dengan unstable_cache: cache selama 60 detik ──
-// Tag: "dashboard-{userId}" → bisa di-revalidate manual via revalidateTag()
-export const getDashboardStats = async (userId: string) =>
-  unstable_cache(() => _getDashboardStats(userId), [`dashboard-${userId}`], {
-    revalidate: 60,
-    tags: [`dashboard-${userId}`],
-  })();
+/** Ambil seller_id + business_name — TIDAK di-cache */
+export async function getSellerProfileForDashboard(userId: string) {
+  const [profile] = await db
+    .select({
+      id: seller_profiles.id,
+      businessName: seller_profiles.business_name,
+    })
+    .from(seller_profiles)
+    .where(eq(seller_profiles.user_id, userId))
+    .limit(1);
+
+  return profile ?? null;
+}
+
+/** Ambil statistik dashboard — di-cache dengan tag */
+export const getDashboardStats = async (sellerId: number) =>
+  unstable_cache(
+    () => _getDashboardStatsBySellerId(sellerId),
+    [`dashboard-stats-${sellerId}`],
+    {
+      revalidate: 60,
+      tags: [`dashboard-stats-${sellerId}`],
+    },
+  )();

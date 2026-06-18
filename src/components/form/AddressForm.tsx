@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
+import { useEffect } from "react";
 import * as z from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -29,76 +30,68 @@ import {
   InputGroupText,
   InputGroupTextarea,
 } from "@/components/ui/input-group";
-import { useDistricts } from "@/hooks/useDistricts";
-
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { useDistricts } from "@/hooks/useDistricts";
 import { useVillages } from "@/hooks/useVillages";
 import axios from "axios";
-import { useEffect, useState } from "react";
-import { log } from "console";
 import { useRouter } from "next/navigation";
-import { unstable_update } from "@/auth";
-import { useSession } from "next-auth/react";
 
 const formSchema = z.object({
-  business_name: z
-    .string()
-    .min(1, "Masukkan nama toko")
-    .max(32, "Maksimal 32 Karakter"),
-  business_address: z.string().min(1, "Masukkan Alamat lengkap tokomu"),
-  description: z
-    .string()
-    .min(20, "Deskripsi minimal 20 Karakter")
-    .max(100, "Deskripsi maksimal 100 Karakter"),
+  recipient_name: z.string().min(1, "Masukkan nama penerima"),
+  phone: z.string().min(1, "Masukkan nomor telepon"),
   district_id: z.string().min(1, "Pilih Kecamatan"),
   village_id: z.string().min(1, "Pilih Kel/Desa"),
+  address: z.string().min(1, "Masukkan alamat lengkap"),
+  is_default: z.boolean(),
 });
+
 type FormValues = z.infer<typeof formSchema>;
 
-export function SellerOnboardingForm() {
+export function AddressForm() {
+  const router = useRouter();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      business_name: "",
-      business_address: "",
-      description: "",
+      recipient_name: "",
+      phone: "",
       district_id: "",
       village_id: "",
+      address: "",
+      is_default: false,
     },
   });
-  const idKecamatan = useWatch({
+
+  const districtId = useWatch({
     control: form.control,
     name: "district_id",
   });
+
+  const { data: districtsData } = useDistricts();
+  const { data: villagesData } = useVillages(districtId);
+
   useEffect(() => {
     form.setValue("village_id", "");
-  }, [idKecamatan]);
-  console.log();
-  const router = useRouter();
-  const { update, data: session } = useSession();
-  const { data: districtsData } = useDistricts();
-  const { data: villagesData } = useVillages(idKecamatan);
-  console.log(villagesData);
+  }, [districtId, form]);
 
-  type districtProps = {
+  type DistrictProps = {
     id: string;
     name: string;
   };
-  const filteredDistrictData: districtProps[] =
-    districtsData?.data?.value?.map((item: districtProps) => ({
+
+  const filteredDistrictData: DistrictProps[] =
+    districtsData?.data?.value?.map((item: DistrictProps) => ({
       id: item.id.toString(),
       name: item.name,
     })) || [];
 
-  async function onSubmit(data: z.infer<typeof formSchema>) {
-    console.log(data);
-
+  async function onSubmit(data: FormValues) {
     try {
       const districtName =
         filteredDistrictData.find((d) => d.id === data.district_id)?.name ?? "";
@@ -107,62 +100,52 @@ export function SellerOnboardingForm() {
           (v: { id: string; name: string }) => v.id === data.village_id,
         )?.name ?? "";
 
-      const response = await axios.post("/api/seller-profiles", {
+      const response = await axios.post("/api/addresses", {
         ...data,
-        business_name: data.business_name,
-        business_address: data.business_address,
-        description: data.description,
-        district_id: data.district_id,
-        village_id: data.village_id,
         district_name: districtName,
         village_name: villageName,
       });
-      await update({ seller_id: response.data.id });
-      console.log("sesion baru :", session);
 
-      toast.success(
-        response.data?.message || "Profil penjual berhasil dibuat!",
-      );
+      toast.success(response.data?.message || "Alamat berhasil ditambahkan!");
       form.reset();
-      router.push("/dashboard");
+      router.push("/dashboard/addresses");
     } catch (error) {
-      let message = "Gagal membuat produk";
+      let message = "Gagal menambahkan alamat";
       if (axios.isAxiosError(error)) {
-        // Di dalam blok ini, TypeScript tahu 'error' adalah AxiosError
         message = error.response?.data?.message || message;
       } else if (error instanceof Error) {
-        // Ini untuk error umum JavaScript (misal typo kode/runtime error)
         message = error.message;
       }
-
       toast.error(message);
     }
   }
 
   return (
-    <Card className="w-full sm:max-w-md my-10">
-      <CardHeader className="justify-center text-center">
-        <CardTitle className="text-2xl font-bold text-cengkeh-brown">
-          Data kamu belung lengkap!
+    <Card className="w-full pt-0 ring-0">
+      <CardHeader className="mb-5">
+        <CardTitle className="text-3xl font-bold text-cengkeh-brown">
+          Tambah Alamat
         </CardTitle>
         <CardDescription className="text-cengkeh-brown">
-          Isi detail informasi tentang toko anda untuk mulai menjual.
+          Daftar alamat anda akan tersiman di sini.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form id="formOnboarding" onSubmit={form.handleSubmit(onSubmit)}>
+        <form id="form-address-add" onSubmit={form.handleSubmit(onSubmit)}>
           <FieldGroup>
             <Controller
-              name="business_name"
+              name="recipient_name"
               control={form.control}
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="business_name">Nama Toko</FieldLabel>
+                  <FieldLabel htmlFor="recipient_name">
+                    Nama Penerima
+                  </FieldLabel>
                   <Input
                     {...field}
-                    id="business_name"
+                    id="recipient_name"
                     aria-invalid={fieldState.invalid}
-                    placeholder="Masukkan nama toko ..."
+                    placeholder="Nama penerima paket"
                     autoComplete="off"
                   />
                   {fieldState.invalid && (
@@ -171,14 +154,32 @@ export function SellerOnboardingForm() {
                 </Field>
               )}
             />
+
+            <Controller
+              name="phone"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="phone">Nomor Telepon</FieldLabel>
+                  <Input
+                    {...field}
+                    id="phone"
+                    aria-invalid={fieldState.invalid}
+                    placeholder="08xxxxxxxxxx"
+                    autoComplete="off"
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+
             <Controller
               name="district_id"
               control={form.control}
               render={({ field, fieldState }) => (
-                <Field
-                  orientation="responsive"
-                  data-invalid={fieldState.invalid}
-                >
+                <Field orientation="vertical" data-invalid={fieldState.invalid}>
                   <FieldContent>
                     <FieldLabel htmlFor="districts">Kecamatan</FieldLabel>
                     {fieldState.invalid && (
@@ -213,12 +214,9 @@ export function SellerOnboardingForm() {
               name="village_id"
               control={form.control}
               render={({ field, fieldState }) => (
-                <Field
-                  orientation="responsive"
-                  data-invalid={fieldState.invalid}
-                >
+                <Field orientation="vertical" data-invalid={fieldState.invalid}>
                   <FieldContent>
-                    <FieldLabel htmlFor="districts">Kelurahan/Desa</FieldLabel>
+                    <FieldLabel htmlFor="villages">Kelurahan/Desa</FieldLabel>
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
@@ -227,10 +225,10 @@ export function SellerOnboardingForm() {
                     name={field.name}
                     value={field.value}
                     onValueChange={field.onChange}
-                    disabled={!idKecamatan}
+                    disabled={!districtId}
                   >
                     <SelectTrigger
-                      id="districts"
+                      id="villages"
                       aria-invalid={fieldState.invalid}
                       className="min-w-30 rounded-md"
                     >
@@ -246,7 +244,7 @@ export function SellerOnboardingForm() {
                       )}
                     </SelectContent>
                   </Select>
-                  {!idKecamatan && (
+                  {!districtId && (
                     <FieldDescription>
                       Silahkan pilih kecamatan terlebih dahulu!
                     </FieldDescription>
@@ -256,18 +254,16 @@ export function SellerOnboardingForm() {
             />
 
             <Controller
-              name="business_address"
+              name="address"
               control={form.control}
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="business_address">
-                    Alamat Toko
-                  </FieldLabel>
+                  <FieldLabel htmlFor="address">Alamat Lengkap</FieldLabel>
                   <Input
                     {...field}
-                    id="business_address"
+                    id="recipient_name"
                     aria-invalid={fieldState.invalid}
-                    placeholder="Alamat lengkap Jl, RT, RW, Kodepos ..."
+                    placeholder="Nama penerima paket"
                     autoComplete="off"
                   />
                   {fieldState.invalid && (
@@ -276,30 +272,25 @@ export function SellerOnboardingForm() {
                 </Field>
               )}
             />
+
             <Controller
-              name="description"
+              name="is_default"
               control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="description">Deskripsi toko</FieldLabel>
-                  <InputGroup>
-                    <InputGroupTextarea
-                      {...field}
-                      id="description"
-                      placeholder="Deksripsikan toko kamu ..."
-                      rows={6}
-                      className="min-h-24 resize-none"
-                      aria-invalid={fieldState.invalid}
-                    />
-                    <InputGroupAddon align="block-end">
-                      <InputGroupText className="tabular-nums">
-                        {field.value.length}/100 karakter
-                      </InputGroupText>
-                    </InputGroupAddon>
-                  </InputGroup>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
+              render={({ field }) => (
+                <Field orientation="vertical">
+                  <FieldContent>
+                    <FieldLabel htmlFor="is_default">
+                      Jadikan alamat utama
+                    </FieldLabel>
+                    <FieldDescription>
+                      Alamat ini akan dipakai sebagai default saat checkout.
+                    </FieldDescription>
+                  </FieldContent>
+                  <Switch
+                    id="is_default"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
                 </Field>
               )}
             />
@@ -311,8 +302,8 @@ export function SellerOnboardingForm() {
           <Button type="button" variant="outline" onClick={() => form.reset()}>
             Reset
           </Button>
-          <Button type="submit" form="formOnboarding">
-            Submit
+          <Button type="submit" form="form-address-add">
+            Simpan Alamat
           </Button>
         </Field>
       </CardFooter>

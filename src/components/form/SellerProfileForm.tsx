@@ -108,7 +108,16 @@ export function SellerProfileForm({ profile }: Props) {
     setSubmitError(null);
 
     try {
-      const response = await axios.put("/api/seller-profiles", data);
+      const districtName =
+        districts.find((d) => d.id === data.district_id)?.name ?? "";
+      const villageName =
+        villages.find((v) => v.id === data.village_id)?.name ?? "";
+
+      const response = await axios.put("/api/seller-profiles", {
+        ...data,
+        district_name: districtName,
+        village_name: villageName,
+      });
       toast.success(
         response.data?.message || "Profil toko berhasil diperbarui!",
       );

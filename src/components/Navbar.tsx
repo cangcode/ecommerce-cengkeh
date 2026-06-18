@@ -35,7 +35,7 @@ const Navbar = () => {
           </Link>
           <Link
             className="text-cengkeh-brown hover:text-cengkeh-darker-brown text-center transition-colors"
-            href={"/"}
+            href={"/product"}
           >
             Produk
           </Link>
@@ -49,7 +49,7 @@ const Navbar = () => {
             </Link>
           )}
         </div>
-        
+
         <button
           onClick={toggleMenu}
           className="md:hidden flex items-center justify-center"

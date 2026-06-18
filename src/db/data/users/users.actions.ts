@@ -1,5 +1,5 @@
 import { db } from "@/index"; // koneksi drizzle Anda
-import { users } from "@/db/schema";
+import { users, charts } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { hash } from "bcrypt-ts";
 import { z } from "zod";
@@ -70,12 +70,20 @@ export async function registerUser(rawInput: RegisterInput) {
     const hashedPassword = await hash(password, 10);
 
     // 4. Insert data dengan aman
-    await db.insert(users).values({
-      username: normalizedUsername,
-      email: normalizedEmail,
-      passwordHash: hashedPassword,
-      role: role ?? "pembeli",
-    });
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        username: normalizedUsername,
+        email: normalizedEmail,
+        passwordHash: hashedPassword,
+        role: role ?? "pembeli",
+      })
+      .returning({ id: users.id, role: users.role });
+
+    // 5. Jika role pembeli, langsung buatkan keranjang (charts)
+    if (newUser.role === "pembeli") {
+      await db.insert(charts).values({ user_id: newUser.id });
+    }
 
     return { success: true, message: "Akun berhasil dibuat! Silakan masuk." };
   } catch (error) {

@@ -1,10 +1,10 @@
 import { auth } from "@/auth";
 import DashboardPenjual from "@/components/pages/DashboardPenjual";
-import { getDashboardStats } from "@/db/data/dashboard/dashboard.actions";
+import {
+  getDashboardStats,
+  getSellerProfileForDashboard,
+} from "@/db/data/dashboard/dashboard.actions";
 import { redirect } from "next/navigation";
-
-// Revalidasi halaman setiap 60 detik — cegah request berulang ke Supabase
-export const revalidate = 60;
 
 const Page = async () => {
   const session = await auth();
@@ -17,12 +17,16 @@ const Page = async () => {
       redirect("/login");
     }
 
-    // getDashboardStats sekaligus cek seller profile (return null jika belum ada)
-    const stats = await getDashboardStats(userId);
+    // Cek profil TANPA cache — selalu ambil dari DB
+    const profile = await getSellerProfileForDashboard(userId);
 
-    if (!stats) {
+    if (!profile) {
       redirect("/seller-onboarding");
     }
+
+    // Statistik pakai cache (aman karena hanya fetch angka produk)
+    const stats = await getDashboardStats(profile.id);
+    stats.businessName = profile.businessName;
 
     return <DashboardPenjual session={session} stats={stats} />;
   }

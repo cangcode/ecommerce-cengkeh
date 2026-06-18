@@ -15,7 +15,10 @@ import {
   ChevronRight,
   ClipboardList,
   LayoutDashboard,
+  MapPinned,
   Package,
+  Package2,
+  ShoppingBasket,
   Store,
   TrendingUp,
   User2,
@@ -151,7 +154,7 @@ export async function DashboardSidebar() {
         <>
           {/* sidebar pembeli */}
           <SidebarContent>
-            <SidebarGroup className="px-2">
+            <SidebarGroup className="px-2 gap-2">
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild className="font-semibold">
@@ -162,15 +165,50 @@ export async function DashboardSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
-            </SidebarGroup>
+              <Collapsible defaultOpen className="group/collapsible">
+                <SidebarGroup className="p-0">
+                  <SidebarGroupLabel
+                    asChild
+                    className="px-0 font-semibold text-cengkeh-brown"
+                  >
+                    <ActiveCollapsibleTrigger
+                      activePrefix="/dashboard/addresses"
+                      className="flex w-full items-center px-2 py-1 text-cengkeh-brown! hover:bg-cengkeh-brown! hover:text-cengkeh-beige! text-opacity active:bg-cengkeh-brown active:text-cengkeh-beige"
+                    >
+                      <MapPinned className="size-4! mr-2" />
+                      Alamat Saya
+                      <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                    </ActiveCollapsibleTrigger>
+                  </SidebarGroupLabel>
+                  <CollapsibleContent className="py-2">
+                    <SidebarGroupContent className="pr-12">
+                      <SidebarMenu className="ml-5 border-l border-cengkeh-brown/40 pl-2">
+                        <SidebarMenuItem>
+                          <SidebarMenuButton asChild>
+                            <SidebarMenuLink href="/dashboard/addresses">
+                              Semua Alamat
+                            </SidebarMenuLink>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
 
-            <SidebarGroup className="px-2">
+                        <SidebarMenuItem>
+                          <SidebarMenuButton asChild>
+                            <SidebarMenuLink href="/dashboard/addresses/add">
+                              Tambah Alamat
+                            </SidebarMenuLink>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  </CollapsibleContent>
+                </SidebarGroup>
+              </Collapsible>
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild className="font-semibold">
-                    <SidebarMenuLink href="/dashboard/order-list">
-                      <Package className="size-4!" />
-                      Lihat Produk
+                    <SidebarMenuLink href="/dashboard/chart">
+                      <ShoppingBasket className="size-4!" />
+                      Keranjang
                     </SidebarMenuLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -179,28 +217,8 @@ export async function DashboardSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild className="font-semibold">
                     <SidebarMenuLink href="/dashboard/order-list">
-                      <ClipboardList className="size-4!" />
-                      Daftar Pesanan
-                    </SidebarMenuLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild className="font-semibold">
-                    <SidebarMenuLink href="/dashboard/mountly-reports">
-                      <TrendingUp className="size-4!" />
-                      Laporan Bulanan
-                    </SidebarMenuLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild className="font-semibold">
-                    <SidebarMenuLink href="/dashboard/mountly-reports">
-                      <Store className="size-4!" />
-                      Profile Toko
+                      <Package2 className="size-4!" />
+                      Pesanan
                     </SidebarMenuLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -214,7 +232,7 @@ export async function DashboardSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton>
-              <User2 /> Username
+              <User2 /> {session?.user.name}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

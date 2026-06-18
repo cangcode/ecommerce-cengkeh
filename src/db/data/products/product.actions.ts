@@ -80,3 +80,33 @@ export async function updateProduct(
 
   return updated ?? null;
 }
+
+/** Ambil semua produk aktif untuk halaman publik /product */
+export async function getAllProducts({
+  search,
+  page,
+}: {
+  search: string;
+  page: number;
+}) {
+  const normalizedSearch = search.trim().replace(/\s+/g, " ");
+  const normalizedSearchNoSpace = normalizedSearch
+    .replace(/\s+/g, "")
+    .toLowerCase();
+
+  const whereCondition = normalizedSearchNoSpace
+    ? and(
+        eq(products.is_active, true),
+        sql`regexp_replace(lower(${products.title}), '\\s+', '', 'g') LIKE ${`%${normalizedSearchNoSpace}%`}`,
+      )
+    : eq(products.is_active, true);
+
+  const result = await db
+    .select()
+    .from(products)
+    .where(whereCondition)
+    .limit(20)
+    .offset((page - 1) * 20);
+
+  return result;
+}

@@ -1,9 +1,10 @@
-import { seller_profiles } from "@/db/schema";
+import { seller_profiles, districts, villages } from "@/db/schema";
 import { createSellerProfileSchema } from "./seller-profiles.schema";
 import { db } from "@/index";
 import { auth } from "@/auth";
 import z from "zod";
 import { eq } from "drizzle-orm";
+import { revalidateTag } from "next/cache";
 
 export async function createSellerProfile(
   data: z.infer<typeof createSellerProfileSchema>,
@@ -18,6 +19,31 @@ export async function createSellerProfile(
   }
 
   try {
+    // Upsert district & village dari payload (sebelum Zod strip)
+    const raw = data as Record<string, unknown>;
+    if (raw.district_name && typeof raw.district_name === "string") {
+      await db
+        .insert(districts)
+        .values({ id: String(raw.district_id), name: raw.district_name })
+        .onConflictDoUpdate({
+          target: districts.id,
+          set: { name: raw.district_name },
+        });
+    }
+    if (raw.village_name && typeof raw.village_name === "string") {
+      await db
+        .insert(villages)
+        .values({
+          id: String(raw.village_id),
+          district_id: String(raw.district_id),
+          name: raw.village_name,
+        })
+        .onConflictDoUpdate({
+          target: villages.id,
+          set: { name: raw.village_name, district_id: String(raw.district_id) },
+        });
+    }
+
     const validated = createSellerProfileSchema.parse(data);
 
     const [profile] = await db
@@ -27,6 +53,9 @@ export async function createSellerProfile(
         ...validated,
       })
       .returning({ id: seller_profiles.id });
+
+    // Hapus cache statistik dashboard jika ada
+    revalidateTag(`dashboard-stats-${profile.id}`, {});
 
     return {
       success: true,
@@ -67,6 +96,31 @@ export async function updateSellerProfile(
   data: z.infer<typeof createSellerProfileSchema>,
 ) {
   try {
+    // Upsert district & village dari payload (sebelum Zod strip)
+    const raw = data as Record<string, unknown>;
+    if (raw.district_name && typeof raw.district_name === "string") {
+      await db
+        .insert(districts)
+        .values({ id: String(raw.district_id), name: raw.district_name })
+        .onConflictDoUpdate({
+          target: districts.id,
+          set: { name: raw.district_name },
+        });
+    }
+    if (raw.village_name && typeof raw.village_name === "string") {
+      await db
+        .insert(villages)
+        .values({
+          id: String(raw.village_id),
+          district_id: String(raw.district_id),
+          name: raw.village_name,
+        })
+        .onConflictDoUpdate({
+          target: villages.id,
+          set: { name: raw.village_name, district_id: String(raw.district_id) },
+        });
+    }
+
     const validated = createSellerProfileSchema.parse(data);
 
     const [updated] = await db
@@ -76,6 +130,11 @@ export async function updateSellerProfile(
       })
       .where(eq(seller_profiles.user_id, userId))
       .returning();
+
+    // Hapus cache statistik dashboard setelah update
+    if (updated) {
+      revalidateTag(`dashboard-stats-${updated.id}`, {});
+    }
 
     return {
       success: true,
