@@ -25,7 +25,22 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const addressId: number = body.address_id;
-    const shippingPerSeller: ShippingPerSeller = body.shipping_per_seller ?? {};
+    const shippingPerSellerRaw = (body.shipping_per_seller ?? {}) as Record<
+      string,
+      { method: string; cost: number }
+    >;
+
+    // Normalize keys from string to number
+    const shippingPerSeller: Record<
+      number,
+      { method: "ambil_sendiri" | "antarkan"; cost: number }
+    > = {};
+    for (const [key, val] of Object.entries(shippingPerSellerRaw)) {
+      shippingPerSeller[Number(key)] = val as {
+        method: "ambil_sendiri" | "antarkan";
+        cost: number;
+      };
+    }
 
     if (!addressId) {
       return NextResponse.json(
@@ -113,7 +128,18 @@ export async function POST(req: Request) {
       },
     };
 
+    console.log(
+      "🔵 [PAYMENT] Creating transaction for",
+      session.user.email,
+      "| gross:",
+      grossAmount,
+    );
     const transaction = await snap.createTransaction(parameter);
+    console.log(
+      "🟢 [PAYMENT] Token created:",
+      transaction.token?.substring(0, 20),
+      "...",
+    );
 
     // 4. Simpan order ke DB
     const [savedOrder] = await db
@@ -151,10 +177,18 @@ export async function POST(req: Request) {
       redirect_url: transaction.redirect_url,
       order_id: orderId,
     });
-  } catch (error) {
-    console.error("Snap Token Error:", error);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("❌ [PAYMENT] Error:", msg);
+    // Log full error object untuk debug di Vercel
+    if (error && typeof error === "object" && "ApiResponse" in error) {
+      console.error(
+        "❌ [PAYMENT] Midtrans response:",
+        JSON.stringify((error as any).ApiResponse),
+      );
+    }
     return NextResponse.json(
-      { success: false, message: "Gagal membuat transaksi." },
+      { success: false, message: `Gagal membuat transaksi: ${msg}` },
       { status: 500 },
     );
   }
