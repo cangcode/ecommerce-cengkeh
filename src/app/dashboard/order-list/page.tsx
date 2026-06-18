@@ -65,25 +65,25 @@ export default function OrderList() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const snapLoaded = useRef(false);
+  const snapReady = useRef(false);
 
   // Inject Midtrans Snap script
   useEffect(() => {
-    if (snapLoaded.current) return;
+    if (snapReady.current) return;
+    if (document.querySelector('script[src*="snap.js"]')) {
+      if ((window as any).snap) snapReady.current = true;
+      return;
+    }
+
     const script = document.createElement("script");
-    script.setAttribute(
-      "data-client-key",
-      process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY ?? "",
-    );
     script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
+    script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY ?? "");
     script.async = true;
-    script.onload = () => {
-      snapLoaded.current = true;
-    };
+
+    script.onload = () => { snapReady.current = true; };
+    script.onerror = () => console.warn("⚠️ Gagal memuat Midtrans Snap JS");
+
     document.head.appendChild(script);
-    return () => {
-      document.head.removeChild(script);
-    };
   }, []);
 
   const fetchOrders = useCallback(async () => {
@@ -340,7 +340,10 @@ export default function OrderList() {
                               },
                             });
                           } else {
-                            router.push("/dashboard/chart");
+                            window.open(
+                              `https://app.sandbox.midtrans.com/snap/v1/transactions/${order.snap_token}/redirect`,
+                              "_blank",
+                            );
                           }
                         }}
                       >
