@@ -22,7 +22,7 @@ const Navbar = () => {
 
   return (
     <>
-      <div className="h-15 w-full font-inter bg-cengkeh-beige fixed top-0 flex justify-between items-center px-6 md:px-70 shadow-sm shadow-cengkeh-brown/10 z-40">
+      <div className="h-15 w-full font-inter bg-cengkeh-beige fixed top-0 flex justify-between items-center px-6 xl:px-70 shadow-sm shadow-cengkeh-brown/10 z-40">
         <div className="size-10 rounded-sm bg-cengkeh-brown flex justify-center items-center text-cengkeh-beige">
           B
         </div>

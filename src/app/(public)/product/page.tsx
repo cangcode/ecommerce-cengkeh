@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Search,
   ShoppingBasket,
+  Store,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -51,7 +52,7 @@ export default function ProductList() {
   }, [search, page]);
 
   return (
-    <div className="space-y-5 px-8 py-8 md:px-14">
+    <div className="space-y-5 px-8 py-8 xl:px-70">
       <div className="space-y-1">
         <h1 className="text-cengkeh-brown font-bold text-3xl">Semua Produk</h1>
         <p className="text-xs text-cengkeh-brown">
@@ -83,7 +84,7 @@ export default function ProductList() {
       </div>
 
       {/* List produk */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
         {data.map((product) => (
           <Card
             className="relative mx-auto w-full max-w-sm py-0 overflow-hidden"
@@ -95,7 +96,16 @@ export default function ProductList() {
               className="relative z-20 aspect-video w-full object-cover"
             />
             <CardHeader className="p-3 md:px-3 space-y-1.5">
-              <CardTitle className="text-sm sm:text-base leading-tight line-clamp-1">
+              {product.business_name && (
+                <Link
+                  href={`/store/${product.seller_id}`}
+                  className="text-[10px] sm:text-[11px] text-cengkeh-brown font-medium truncate flex items-center hover:underline"
+                >
+                  <Store className="size-3.5 shrink-0" /> &nbsp;
+                  {product.business_name}
+                </Link>
+              )}
+              <CardTitle className="text-sm sm:text-base leading-tight line-clamp-1 text-cengkeh-brown">
                 {product.title}
               </CardTitle>
               <CardDescription className="text-[10px] sm:text-xs line-clamp-2">

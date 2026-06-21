@@ -1,6 +1,6 @@
 "use server";
 
-import { products } from "@/db/schema";
+import { products, seller_profiles } from "@/db/schema";
 import { db } from "@/index";
 import { createProductSchema } from "./products.schema";
 import z from "zod";
@@ -102,11 +102,61 @@ export async function getAllProducts({
     : eq(products.is_active, true);
 
   const result = await db
-    .select()
+    .select({
+      id: products.id,
+      seller_id: products.seller_id,
+      slug: products.slug,
+      title: products.title,
+      description: products.description,
+      price: products.price,
+      wholesale_price: products.wholesale_price,
+      wholesale_qty: products.wholesale_qty,
+      weight_unit: products.weight_unit,
+      stock: products.stock,
+      image_url: products.image_url,
+      buyer_count: products.buyer_count,
+      sold_count: products.sold_count,
+      is_active: products.is_active,
+      created_at: products.created_at,
+      updated_at: products.updated_at,
+      business_name: seller_profiles.business_name,
+    })
     .from(products)
+    .leftJoin(seller_profiles, eq(products.seller_id, seller_profiles.id))
     .where(whereCondition)
     .limit(20)
     .offset((page - 1) * 20);
+
+  return result;
+}
+
+/** Ambil produk unggulan untuk homepage – berdasarkan sold_count tertinggi */
+export async function getFeaturedProducts(limit = 8) {
+  const result = await db
+    .select({
+      id: products.id,
+      seller_id: products.seller_id,
+      slug: products.slug,
+      title: products.title,
+      description: products.description,
+      price: products.price,
+      wholesale_price: products.wholesale_price,
+      wholesale_qty: products.wholesale_qty,
+      weight_unit: products.weight_unit,
+      stock: products.stock,
+      image_url: products.image_url,
+      buyer_count: products.buyer_count,
+      sold_count: products.sold_count,
+      is_active: products.is_active,
+      created_at: products.created_at,
+      updated_at: products.updated_at,
+      business_name: seller_profiles.business_name,
+    })
+    .from(products)
+    .leftJoin(seller_profiles, eq(products.seller_id, seller_profiles.id))
+    .where(eq(products.is_active, true))
+    .orderBy(sql`${products.sold_count} DESC`)
+    .limit(limit);
 
   return result;
 }

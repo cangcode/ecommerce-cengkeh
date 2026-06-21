@@ -52,6 +52,7 @@ const formSchema = z.object({
     .min(1, "Masukkan nama toko")
     .max(32, "Maksimal 32 Karakter"),
   business_address: z.string().min(1, "Masukkan Alamat lengkap tokomu"),
+  phone: z.string().optional(),
   description: z
     .string()
     .min(20, "Deskripsi minimal 20 Karakter")
@@ -66,6 +67,7 @@ export function SellerOnboardingForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       business_name: "",
+      phone: "",
       business_address: "",
       description: "",
       district_id: "",
@@ -111,6 +113,7 @@ export function SellerOnboardingForm() {
         ...data,
         business_name: data.business_name,
         business_address: data.business_address,
+        phone: data.phone || null,
         description: data.description,
         district_id: data.district_id,
         village_id: data.village_id,
@@ -163,6 +166,27 @@ export function SellerOnboardingForm() {
                     id="business_name"
                     aria-invalid={fieldState.invalid}
                     placeholder="Masukkan nama toko ..."
+                    autoComplete="off"
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+            <Controller
+              name="phone"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="phone">
+                    Nomor WhatsApp (opsional)
+                  </FieldLabel>
+                  <Input
+                    {...field}
+                    id="phone"
+                    aria-invalid={fieldState.invalid}
+                    placeholder="08xxxxxxxxxx"
                     autoComplete="off"
                   />
                   {fieldState.invalid && (

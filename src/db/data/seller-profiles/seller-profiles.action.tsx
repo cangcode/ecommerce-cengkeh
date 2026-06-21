@@ -1,9 +1,9 @@
-import { seller_profiles, districts, villages } from "@/db/schema";
+import { seller_profiles, districts, villages, products } from "@/db/schema";
 import { createSellerProfileSchema } from "./seller-profiles.schema";
 import { db } from "@/index";
 import { auth } from "@/auth";
 import z from "zod";
-import { eq } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 
 export async function createSellerProfile(
@@ -89,6 +89,70 @@ export async function getSellerProfile(userId: string) {
     .limit(1);
 
   return profile ?? null;
+}
+
+/** Ambil profil toko berdasarkan seller_profiles.id (untuk halaman publik) */
+export async function getSellerProfileById(sellerId: number) {
+  const [profile] = await db
+    .select({
+      id: seller_profiles.id,
+      business_name: seller_profiles.business_name,
+      business_address: seller_profiles.business_address,
+      phone: seller_profiles.phone,
+      description: seller_profiles.description,
+      district_id: seller_profiles.district_id,
+      village_id: seller_profiles.village_id,
+    })
+    .from(seller_profiles)
+    .where(eq(seller_profiles.id, sellerId))
+    .limit(1);
+
+  return profile ?? null;
+}
+
+/** Ambil produk aktif dari seller tertentu (untuk halaman publik) */
+export async function getProductsBySellerId(sellerId: number) {
+  const result = await db
+    .select({
+      id: products.id,
+      slug: products.slug,
+      title: products.title,
+      description: products.description,
+      price: products.price,
+      wholesale_price: products.wholesale_price,
+      wholesale_qty: products.wholesale_qty,
+      weight_unit: products.weight_unit,
+      stock: products.stock,
+      image_url: products.image_url,
+      sold_count: products.sold_count,
+    })
+    .from(products)
+    .where(and(eq(products.seller_id, sellerId), eq(products.is_active, true)))
+    .orderBy(products.created_at);
+
+  return result;
+}
+
+/** Ambil produk terlaris dari seller (sold_count > 0, max 4) */
+export async function getBestSellersBySellerId(sellerId: number) {
+  const result = await db
+    .select({
+      id: products.id,
+      slug: products.slug,
+      title: products.title,
+      price: products.price,
+      weight_unit: products.weight_unit,
+      stock: products.stock,
+      image_url: products.image_url,
+      sold_count: products.sold_count,
+    })
+    .from(products)
+    .where(and(eq(products.seller_id, sellerId), eq(products.is_active, true)))
+    .orderBy(desc(products.sold_count))
+    .limit(4);
+
+  // Hanya return yang sold_count > 0
+  return result.filter((p) => p.sold_count > 0);
 }
 
 export async function updateSellerProfile(

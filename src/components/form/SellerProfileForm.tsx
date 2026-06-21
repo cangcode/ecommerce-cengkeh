@@ -45,6 +45,7 @@ const formSchema = z.object({
     .min(1, "Masukkan nama toko")
     .max(32, "Maksimal 32 karakter"),
   business_address: z.string().min(1, "Masukkan alamat lengkap toko"),
+  phone: z.string().optional(),
   description: z
     .string()
     .min(20, "Deskripsi minimal 20 karakter")
@@ -59,6 +60,7 @@ type Props = {
   profile: {
     business_name: string;
     business_address: string;
+    phone: string | null;
     description: string;
     district_id: string;
     village_id: string;
@@ -71,6 +73,7 @@ export function SellerProfileForm({ profile }: Props) {
     defaultValues: {
       business_name: profile.business_name,
       business_address: profile.business_address,
+      phone: profile.phone ?? "",
       description: profile.description,
       district_id: profile.district_id,
       village_id: profile.village_id,
@@ -115,6 +118,7 @@ export function SellerProfileForm({ profile }: Props) {
 
       const response = await axios.put("/api/seller-profiles", {
         ...data,
+        phone: data.phone || null,
         district_name: districtName,
         village_name: villageName,
       });
@@ -190,6 +194,31 @@ export function SellerProfileForm({ profile }: Props) {
                     id="business_address"
                     aria-invalid={fieldState.invalid}
                     placeholder="Alamat lengkap toko Anda"
+                    autoComplete="off"
+                  />
+                </Field>
+              )}
+            />
+
+            <Controller
+              name="phone"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel
+                    htmlFor="store-profile-phone"
+                    className="flex-col md:flex-row md:gap-2 gap-0 items-start md:items-center"
+                  >
+                    Nomor WhatsApp (opsional)
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </FieldLabel>
+                  <Input
+                    {...field}
+                    id="store-profile-phone"
+                    aria-invalid={fieldState.invalid}
+                    placeholder="08xxxxxxxxxx"
                     autoComplete="off"
                   />
                 </Field>
@@ -319,6 +348,7 @@ export function SellerProfileForm({ profile }: Props) {
               form.reset({
                 business_name: profile.business_name,
                 business_address: profile.business_address,
+                phone: profile.phone ?? "",
                 description: profile.description,
                 district_id: profile.district_id,
                 village_id: profile.village_id,
