@@ -17,12 +17,19 @@ import {
   Package2,
   Store,
   Truck,
+  Home,
 } from "lucide-react";
 
 const STORAGE_KEY = "announcement_seen_version";
-const UPDATE_VERSION = 2;
+const UPDATE_VERSION = 3;
 
 const features = [
+  {
+    icon: Home,
+    title: "Homepage Interaktif",
+    description:
+      "homepage sekarang tidak kosong lagi kaya hatimu, sudah ada isinyaaa...",
+  },
   {
     icon: Store,
     title: "Dashboard Penjual Lengkap",
@@ -95,8 +102,8 @@ export default function AnnouncementModal() {
           </DialogDescription>
         </div>
 
-        {/* Features list */}
-        <div className="px-6 py-5 space-y-3">
+        {/* Features list — scrollable */}
+        <div className="px-6 py-5 space-y-3 max-h-80 overflow-y-auto">
           {features.map((feature, index) => (
             <div
               key={index}

@@ -22,6 +22,7 @@ const Page = async () => {
         profile={{
           business_name: profile.business_name,
           business_address: profile.business_address,
+          phone: profile.phone ?? null,
           description: profile.description ?? "",
           district_id: profile.district_id,
           village_id: profile.village_id,

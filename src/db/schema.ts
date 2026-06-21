@@ -97,6 +97,7 @@ export const seller_profiles = pgTable("seller_profiles", {
     .references(() => users.id),
   business_name: text("business_name").notNull(),
   business_address: text("business_address").notNull(),
+  phone: text("phone"),
   district_id: text("district_id")
     .notNull()
     .references(() => districts.id),

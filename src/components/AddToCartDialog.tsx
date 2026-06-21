@@ -21,6 +21,7 @@ import { Minus, Plus, ShoppingBasket, Tags, Weight } from "lucide-react";
 
 export type ProductForCart = {
   id: number;
+  seller_id?: number;
   title: string;
   slug: string;
   price: number;
@@ -30,6 +31,7 @@ export type ProductForCart = {
   stock: number;
   description: string;
   image_url: { public_id: string; secure_url: string }[];
+  business_name?: string | null;
 };
 
 type Props = {

@@ -3,6 +3,7 @@ import { z } from "zod";
 export const createSellerProfileSchema = z.object({
   business_name: z.string().min(1),
   business_address: z.string().min(1),
+  phone: z.string().optional(),
   description: z.string().min(1),
   district_id: z.string().min(1),
   village_id: z.string().min(1),
