@@ -8,7 +8,7 @@ export type VoucherRow = {
   code: string;
   discount_type: "fixed" | "percent";
   discount_value: number;
-  min_purchase: number;
+  min_purchase: number | null;
   max_discount: number | null;
   usage_limit: number;
   used_count: number;
@@ -114,10 +114,11 @@ export async function applyVoucherCode(
   }
 
   // Cek min purchase
-  if (subtotal < voucher.min_purchase) {
+  const minPurchase = voucher.min_purchase ?? 0;
+  if (subtotal < minPurchase) {
     return {
       valid: false,
-      message: `Minimal belanja ${voucher.min_purchase.toLocaleString('id-ID')} untuk pakai voucher ini.`,
+      message: `Minimal belanja ${minPurchase.toLocaleString('id-ID')} untuk pakai voucher ini.`,
     };
   }
 

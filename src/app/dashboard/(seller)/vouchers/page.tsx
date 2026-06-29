@@ -236,9 +236,9 @@ export default function SellerVouchersPage() {
                         ? `Potongan ${formatRupiah(v.discount_value)}`
                         : `Diskon ${v.discount_value}%`}
                     </Badge>
-                    {v.min_purchase > 0 && (
+                    {(v.min_purchase ?? 0) > 0 && (
                       <Badge variant="outline" className="text-xs">
-                        Min. {formatRupiah(v.min_purchase)}
+                        Min. {formatRupiah(v.min_purchase ?? 0)}
                       </Badge>
                     )}
                     {v.discount_type === "percent" && v.max_discount && (
