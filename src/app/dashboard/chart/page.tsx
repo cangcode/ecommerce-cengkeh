@@ -30,6 +30,9 @@ import {
   MapPinned,
   Truck,
   User,
+  Ticket,
+  X,
+  Loader2,
 } from "lucide-react";
 import { getChartItems } from "@/db/data/charts/charts.actions";
 import { getUserAddresses } from "@/db/data/addresses/addresses.actions";
@@ -102,6 +105,13 @@ export default function ChartPage() {
   const [paying, setPaying] = useState(false);
   const snapReady = useRef(false);
   const orderIdRef = useRef<string | null>(null);
+
+  // Voucher states
+  const [voucherCode, setVoucherCode] = useState("");
+  const [voucherDiscount, setVoucherDiscount] = useState(0);
+  const [voucherLabel, setVoucherLabel] = useState<string | null>(null);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [applyingVoucher, setApplyingVoucher] = useState(false);
 
   // Inject Midtrans Snap script — pakai ref untuk reliability di Vercel
   useEffect(() => {
@@ -218,6 +228,42 @@ export default function ChartPage() {
     return sum + sellerSubtotal(g) + cost;
   }, 0);
 
+  // Hitung total setelah voucher
+  const finalTotal = Math.max(0, grandTotal - voucherDiscount);
+
+  // ---- Voucher Handler ----
+  async function handleApplyVoucher() {
+    if (!voucherCode.trim()) return;
+    setApplyingVoucher(true);
+    setVoucherError(null);
+    try {
+      const itemsTotal = sellerGroups.reduce((sum, g) => sum + sellerSubtotal(g), 0);
+      const { data } = await axios.post("/api/vouchers/apply", {
+        code: voucherCode.trim(),
+        subtotal: itemsTotal,
+      });
+      if (data.valid) {
+        setVoucherDiscount(data.discount_amount);
+        setVoucherLabel(`Voucher ${data.voucher.code}`);
+      } else {
+        setVoucherError(data.message);
+        setVoucherDiscount(0);
+        setVoucherLabel(null);
+      }
+    } catch {
+      setVoucherError("Gagal memvalidasi voucher.");
+    } finally {
+      setApplyingVoucher(false);
+    }
+  }
+
+  function clearVoucher() {
+    setVoucherCode("");
+    setVoucherDiscount(0);
+    setVoucherLabel(null);
+    setVoucherError(null);
+  }
+
   if (status === "loading" || loading) {
     return (
       <div className="flex min-h-svh items-center justify-center px-4 py-8">
@@ -256,6 +302,7 @@ export default function ChartPage() {
       const res = await axios.post("/api/payment", {
         shipping_per_seller: shippingPerSeller,
         address_id: selectedAddressId,
+        voucher_code: voucherLabel ? voucherCode.trim() : undefined,
       });
       const { token, order_id } = res.data;
       orderIdRef.current = order_id;
@@ -680,13 +727,84 @@ export default function ChartPage() {
                   </div>
                 )}
                 <Separator />
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold text-cengkeh-brown">
-                    Grand Total
-                  </span>
-                  <span className="text-lg font-bold text-cengkeh-brown">
-                    {formatRupiah(grandTotal)}
-                  </span>
+
+                {/* Voucher Input */}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-cengkeh-brown flex items-center gap-1">
+                    <Ticket className="size-3.5" /> Kode Voucher
+                  </p>
+                  {voucherLabel ? (
+                    <div className="flex items-center justify-between rounded-md bg-green-50 border border-green-200 p-2 text-xs">
+                      <span className="text-green-700 font-medium">
+                        ✅ {voucherLabel} — Diskon {formatRupiah(voucherDiscount)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={clearVoucher}
+                        className="text-green-600 hover:text-red-600"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        value={voucherCode}
+                        onChange={(e) => {
+                          setVoucherCode(e.target.value.toUpperCase());
+                          setVoucherError(null);
+                        }}
+                        placeholder="Masukkan kode voucher"
+                        className="h-9 text-xs font-mono"
+                        maxLength={20}
+                        onKeyDown={(e) => e.key === "Enter" && handleApplyVoucher()}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-9 text-xs text-cengkeh-brown"
+                        disabled={!voucherCode.trim() || applyingVoucher}
+                        onClick={handleApplyVoucher}
+                      >
+                        {applyingVoucher ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          "Pakai"
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                  {voucherError && (
+                    <p className="text-[11px] text-red-600">{voucherError}</p>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Ringkasan biaya */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-cengkeh-brown/70">Subtotal</span>
+                    <span className="font-medium text-cengkeh-brown">
+                      {formatRupiah(grandTotal)}
+                    </span>
+                  </div>
+                  {voucherDiscount > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-green-700">Diskon Voucher</span>
+                      <span className="font-medium text-green-700">
+                        -{formatRupiah(voucherDiscount)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold text-cengkeh-brown">
+                      Grand Total
+                    </span>
+                    <span className="text-lg font-bold text-cengkeh-brown">
+                      {formatRupiah(finalTotal)}
+                    </span>
+                  </div>
                 </div>
                 <AppButton
                   className="mt-2 flex justify-center font-semibold w-full gap-2"
