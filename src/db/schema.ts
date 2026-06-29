@@ -171,6 +171,22 @@ export const shippingMethodEnum = pgEnum("shipping_method", [
   "antarkan",
 ]);
 
+export const fulfillmentStatusEnum = pgEnum("fulfillment_status", [
+  "menunggu",
+  "diproses",
+  "dikirim",
+  "selesai",
+  "dibatalkan",
+]);
+
+export const returnStatusEnum = pgEnum("return_status", [
+  "none",
+  "requested",
+  "approved",
+  "rejected",
+  "refunded",
+]);
+
 // table orders (satu row = satu checkout)
 export const orders = pgTable("orders", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
@@ -220,7 +236,41 @@ export const order_items = pgTable("order_items", {
   shipping_cost: bigint("shipping_cost", { mode: "number" })
     .notNull()
     .default(0),
+  fulfillment_status: fulfillmentStatusEnum("fulfillment_status")
+    .notNull()
+    .default("menunggu"),
+  return_status: returnStatusEnum("return_status").notNull().default("none"),
+  return_reason: text("return_reason"),
+  return_responded_at: timestamp("return_responded_at", { withTimezone: true }),
   created_at: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// ── VOUCHER ──
+export const voucherDiscountEnum = pgEnum("voucher_discount_type", [
+  "fixed",
+  "percent",
+]);
+
+export const vouchers = pgTable("vouchers", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  seller_id: bigint("seller_id", { mode: "number" })
+    .notNull()
+    .references(() => seller_profiles.id),
+  code: text("code").notNull().unique(),
+  discount_type: voucherDiscountEnum("discount_type").notNull(),
+  discount_value: bigint("discount_value", { mode: "number" }).notNull(),
+  min_purchase: bigint("min_purchase", { mode: "number" }).default(0),
+  max_discount: bigint("max_discount", { mode: "number" }),
+  usage_limit: integer("usage_limit").notNull().default(1),
+  used_count: integer("used_count").notNull().default(0),
+  is_active: boolean("is_active").notNull().default(true),
+  expires_at: timestamp("expires_at", { withTimezone: true }),
+  created_at: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
 });

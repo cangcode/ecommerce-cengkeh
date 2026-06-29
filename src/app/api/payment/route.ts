@@ -3,7 +3,9 @@ import { snap } from "@/lib/midtrans";
 import { auth } from "@/auth";
 import { getChartItems } from "@/db/data/charts/charts.actions";
 import { db } from "@/index";
-import { orders, order_items } from "@/db/schema";
+import { orders, order_items, vouchers } from "@/db/schema";
+import { applyVoucherCode } from "@/db/data/vouchers/voucher.actions";
+import { eq, sql } from "drizzle-orm";
 
 export const runtime = "nodejs";
 
@@ -25,6 +27,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const addressId: number = body.address_id;
+    const voucherCode: string | undefined = body.voucher_code;
     const shippingPerSellerRaw = (body.shipping_per_seller ?? {}) as Record<
       string,
       { method: string; cost: number }
@@ -89,7 +92,19 @@ export async function POST(req: Request) {
       0,
     );
     const itemsTotal = orderItemRows.reduce((sum, i) => sum + i.subtotal, 0);
-    const grossAmount = itemsTotal + totalShipping;
+    let grossAmount = itemsTotal + totalShipping;
+
+    // 2b. Apply voucher jika ada
+    let voucherDiscount = 0;
+    let appliedVoucherId: number | null = null;
+    if (voucherCode) {
+      const voucherResult = await applyVoucherCode(voucherCode, itemsTotal);
+      if (voucherResult.valid && voucherResult.discount_amount) {
+        voucherDiscount = voucherResult.discount_amount;
+        appliedVoucherId = voucherResult.voucher!.id;
+        grossAmount = Math.max(1, grossAmount - voucherDiscount);
+      }
+    }
 
     // 3. Generate order_id & token Midtrans
     const orderId = `TRX-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
@@ -115,6 +130,16 @@ export async function POST(req: Request) {
                 price: totalShipping,
                 quantity: 1,
                 name: "Ongkos Kirim",
+              },
+            ]
+          : []),
+        ...(voucherDiscount > 0
+          ? [
+              {
+                id: "VOUCHER",
+                price: -voucherDiscount,
+                quantity: 1,
+                name: "Diskon Voucher",
               },
             ]
           : []),
@@ -170,6 +195,14 @@ export async function POST(req: Request) {
     }));
 
     await db.insert(order_items).values(itemValues);
+
+    // 6. Increment voucher used_count
+    if (appliedVoucherId) {
+      await db
+        .update(vouchers)
+        .set({ used_count: sql`${vouchers.used_count} + 1`, updated_at: new Date() })
+        .where(eq(vouchers.id, appliedVoucherId));
+    }
 
     return NextResponse.json({
       success: true,

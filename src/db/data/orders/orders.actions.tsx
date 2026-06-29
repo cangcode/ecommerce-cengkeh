@@ -6,9 +6,24 @@ import {
   addresses,
   districts,
   villages,
+  users,
 } from "@/db/schema";
 import { db } from "@/index";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, inArray } from "drizzle-orm";
+
+export type FulfillmentStatus =
+  | "menunggu"
+  | "diproses"
+  | "dikirim"
+  | "selesai"
+  | "dibatalkan";
+
+export type ReturnStatus =
+  | "none"
+  | "requested"
+  | "approved"
+  | "rejected"
+  | "refunded";
 
 export type OrderItemRow = {
   id: number;
@@ -22,6 +37,10 @@ export type OrderItemRow = {
   subtotal: number;
   shipping_method: "ambil_sendiri" | "antarkan";
   shipping_cost: number;
+  fulfillment_status: FulfillmentStatus;
+  return_status: ReturnStatus;
+  return_reason: string | null;
+  return_responded_at: Date | null;
 };
 
 export type OrderRow = {
@@ -85,4 +104,131 @@ export async function getUserOrders(userId: string): Promise<OrderRow[]> {
   );
 
   return ordersWithItems;
+}
+
+export type SellerOrderItemRow = OrderItemRow;
+
+export type SellerOrderRow = {
+  order_id: number;
+  midtrans_order_id: string;
+  status: "pending" | "paid" | "failed" | "expired";
+  gross_amount: number;
+  paid_at: Date | null;
+  created_at: Date;
+  // buyer info
+  buyer_name: string | null;
+  buyer_email: string | null;
+  // shipping
+  recipient_name: string | null;
+  address: string | null;
+  district_name: string | null;
+  village_name: string | null;
+  // items milik seller ini saja
+  items: SellerOrderItemRow[];
+};
+
+/** Ambil pesanan yang masuk untuk penjual tertentu */
+export async function getSellerOrders(
+  sellerId: number,
+): Promise<SellerOrderRow[]> {
+  // 1. Ambil semua order_items milik seller ini
+  const sellerItems = await db
+    .select()
+    .from(order_items)
+    .where(eq(order_items.seller_id, sellerId))
+    .orderBy(order_items.id);
+
+  if (!sellerItems.length) return [];
+
+  // 2. Kumpulkan unique order_id untuk di-join ke orders
+  const orderIds = [...new Set(sellerItems.map((i) => i.order_id))];
+
+  // 3. Ambil orders + shipping info + buyer info
+  const orderRows = await db
+    .select({
+      id: orders.id,
+      user_id: orders.user_id,
+      midtrans_order_id: orders.midtrans_order_id,
+      status: orders.status,
+      gross_amount: orders.gross_amount,
+      paid_at: orders.paid_at,
+      created_at: orders.created_at,
+      recipient_name: addresses.recipient_name,
+      address: addresses.address,
+      district_name: districts.name,
+      village_name: villages.name,
+      buyer_name: users.username,
+      buyer_email: users.email,
+    })
+    .from(orders)
+    .leftJoin(addresses, eq(orders.address_id, addresses.id))
+    .leftJoin(districts, eq(addresses.district_id, districts.id))
+    .leftJoin(villages, eq(addresses.village_id, villages.id))
+    .leftJoin(users, eq(orders.user_id, users.id))
+    .where(inArray(orders.id, orderIds))
+    .orderBy(desc(orders.created_at));
+
+  // 4. Gabungkan: setiap order hanya tampilkan items milik seller ini
+  return orderRows.map((order) => ({
+    order_id: order.id,
+    midtrans_order_id: order.midtrans_order_id,
+    status: order.status,
+    gross_amount: order.gross_amount,
+    paid_at: order.paid_at,
+    created_at: order.created_at,
+    buyer_name: order.buyer_name,
+    buyer_email: order.buyer_email,
+    recipient_name: order.recipient_name,
+    address: order.address,
+    district_name: order.district_name,
+    village_name: order.village_name,
+    items: sellerItems.filter(
+      (i) => i.order_id === order.id,
+    ) as SellerOrderItemRow[],
+  }));
+}
+
+/** Pembeli mengajukan retur — hanya untuk item metode "antarkan" yang sudah dikirim */
+export async function requestReturnItem(itemId: number, reason: string) {
+  const [updated] = await db
+    .update(order_items)
+    .set({
+      return_status: "requested",
+      return_reason: reason,
+    })
+    .where(
+      and(
+        eq(order_items.id, itemId),
+        eq(order_items.shipping_method, "antarkan"),
+        eq(order_items.fulfillment_status, "dikirim"),
+        eq(order_items.return_status, "none"),
+      ),
+    )
+    .returning();
+
+  return updated ?? null;
+}
+
+/** Penjual menyetujui atau menolak retur */
+export async function respondReturnItem(
+  itemId: number,
+  sellerId: number,
+  action: "approved" | "rejected",
+) {
+  const [updated] = await db
+    .update(order_items)
+    .set({
+      return_status: action,
+      return_responded_at: new Date(),
+    })
+    .where(
+      and(
+        eq(order_items.id, itemId),
+        eq(order_items.seller_id, sellerId),
+        eq(order_items.return_status, "requested"),
+      ),
+    )
+    .returning();
+
+  return updated ?? null;
 }

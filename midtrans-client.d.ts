@@ -52,6 +52,12 @@ declare module "midtrans-client" {
 
     class CoreApi {
       constructor(options: CoreApiOptions);
+      transaction: {
+        refund(
+          orderId: string,
+          params?: { amount?: number; reason?: string },
+        ): Promise<unknown>;
+      };
     }
   }
 

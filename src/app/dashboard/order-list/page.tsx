@@ -12,6 +12,16 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { formatRupiah } from "@/lib/utils";
 import {
   Package2,
@@ -23,8 +33,17 @@ import {
   ChevronDown,
   ChevronUp,
   User,
+  CheckCircle,
+  Loader2,
+  RotateCcw,
+  XCircle,
 } from "lucide-react";
-import { getUserOrders, type OrderRow } from "@/db/data/orders/orders.actions";
+import {
+  getUserOrders,
+  type OrderRow,
+  type FulfillmentStatus,
+  type ReturnStatus,
+} from "@/db/data/orders/orders.actions";
 import axios from "axios";
 import { toast } from "sonner";
 
@@ -59,6 +78,40 @@ const METHOD_LABELS: Record<string, string> = {
   antarkan: "Antarkan",
 };
 
+const FULFILLMENT_LABELS: Record<
+  FulfillmentStatus,
+  { label: string; className: string }
+> = {
+  menunggu: { label: "Menunggu", className: "border-amber-300 text-amber-700" },
+  diproses: { label: "Diproses", className: "border-blue-300 text-blue-700" },
+  dikirim: { label: "Dikirim", className: "border-purple-300 text-purple-700" },
+  selesai: { label: "Selesai", className: "border-green-300 text-green-700" },
+  dibatalkan: { label: "Dibatalkan", className: "border-red-300 text-red-600" },
+};
+
+const RETURN_LABELS: Record<
+  ReturnStatus,
+  { label: string; className: string }
+> = {
+  none: { label: "", className: "" },
+  requested: {
+    label: "Retur Diajukan",
+    className: "border-amber-400 text-amber-700 bg-amber-50",
+  },
+  approved: {
+    label: "Retur Disetujui",
+    className: "border-green-400 text-green-700 bg-green-50",
+  },
+  rejected: {
+    label: "Retur Ditolak",
+    className: "border-red-300 text-red-600 bg-red-50",
+  },
+  refunded: {
+    label: "Dana Dikembalikan",
+    className: "border-blue-400 text-blue-700 bg-blue-50",
+  },
+};
+
 export default function OrderList() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -66,6 +119,12 @@ export default function OrderList() {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const snapReady = useRef(false);
+  const [returnDialog, setReturnDialog] = useState<{
+    itemId: number;
+    productTitle: string;
+  } | null>(null);
+  const [returnReason, setReturnReason] = useState("");
+  const [submittingReturn, setSubmittingReturn] = useState(false);
 
   // Inject Midtrans Snap script
   useEffect(() => {
@@ -103,6 +162,25 @@ export default function OrderList() {
       setLoading(false);
     }
   }, [session?.user?.id]);
+
+  const handleSubmitReturn = async () => {
+    if (!returnDialog || !returnReason.trim()) return;
+    setSubmittingReturn(true);
+    try {
+      await axios.post(`/api/orders/items/${returnDialog.itemId}/return`, {
+        reason: returnReason.trim(),
+      });
+      toast.success("Retur berhasil diajukan. Menunggu konfirmasi penjual.");
+      setReturnDialog(null);
+      setReturnReason("");
+      fetchOrders();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Gagal mengajukan retur";
+      toast.error(msg);
+    } finally {
+      setSubmittingReturn(false);
+    }
+  };
 
   useEffect(() => {
     if (status === "authenticated") fetchOrders();
@@ -278,25 +356,109 @@ export default function OrderList() {
                               sg.shipping_method}
                           </Badge>
                         </div>
-                        {sg.items.map((item) => (
-                          <div
-                            key={item.id}
-                            className="flex items-center justify-between rounded-md bg-background p-2 text-xs"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="font-medium text-cengkeh-brown truncate">
-                                {item.product_title}
-                              </p>
-                              <p className="text-muted-foreground">
-                                {item.quantity} {item.product_weight_unit} ×{" "}
-                                {formatRupiah(item.product_price)}
-                              </p>
+                        {sg.items.map((item) => {
+                          const fulfill =
+                            FULFILLMENT_LABELS[item.fulfillment_status] ??
+                            FULFILLMENT_LABELS.menunggu;
+                          const returnCfg =
+                            item.return_status !== "none"
+                              ? RETURN_LABELS[item.return_status]
+                              : null;
+
+                          // Syarat bisa retur: metode antarkan, status dikirim, belum diretur
+                          const canReturn =
+                            item.shipping_method === "antarkan" &&
+                            item.fulfillment_status === "dikirim" &&
+                            item.return_status === "none";
+
+                          return (
+                            <div
+                              key={item.id}
+                              className="flex flex-col gap-2 rounded-md bg-background p-2 text-xs"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-cengkeh-brown truncate">
+                                    {item.product_title}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                    <span className="text-muted-foreground">
+                                      {item.quantity} {item.product_weight_unit}{" "}
+                                      × {formatRupiah(item.product_price)}
+                                    </span>
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-[10px] gap-1 py-0 h-5 ${fulfill.className}`}
+                                    >
+                                      {item.fulfillment_status ===
+                                        "menunggu" && (
+                                        <Clock className="size-2.5" />
+                                      )}
+                                      {item.fulfillment_status ===
+                                        "diproses" && (
+                                        <Loader2 className="size-2.5 animate-spin" />
+                                      )}
+                                      {item.fulfillment_status ===
+                                        "dikirim" && (
+                                        <Truck className="size-2.5" />
+                                      )}
+                                      {item.fulfillment_status ===
+                                        "selesai" && (
+                                        <CheckCircle className="size-2.5" />
+                                      )}
+                                      {fulfill.label}
+                                    </Badge>
+                                    {returnCfg && (
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-[10px] gap-1 py-0 h-5 ${returnCfg.className}`}
+                                      >
+                                        {item.return_status === "requested" && (
+                                          <RotateCcw className="size-2.5" />
+                                        )}
+                                        {item.return_status === "approved" && (
+                                          <CheckCircle className="size-2.5" />
+                                        )}
+                                        {item.return_status === "rejected" && (
+                                          <XCircle className="size-2.5" />
+                                        )}
+                                        {item.return_status === "refunded" && (
+                                          <CreditCard className="size-2.5" />
+                                        )}
+                                        {returnCfg.label}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {item.return_reason && (
+                                    <p className="text-muted-foreground mt-1 italic">
+                                      Alasan: &ldquo;{item.return_reason}&rdquo;
+                                    </p>
+                                  )}
+                                </div>
+                                <span className="font-semibold text-cengkeh-brown shrink-0 ml-3">
+                                  {formatRupiah(item.subtotal)}
+                                </span>
+                              </div>
+
+                              {/* Tombol Ajukan Retur */}
+                              {canReturn && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setReturnDialog({
+                                      itemId: item.id,
+                                      productTitle: item.product_title,
+                                    })
+                                  }
+                                  className="self-start flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-amber-50 border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors"
+                                >
+                                  <RotateCcw className="size-2.5" />
+                                  Ajukan Retur
+                                </button>
+                              )}
                             </div>
-                            <span className="font-semibold text-cengkeh-brown shrink-0 ml-3">
-                              {formatRupiah(item.subtotal)}
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                         {sg.shipping_cost > 0 && (
                           <div className="flex items-center justify-between text-xs px-2">
                             <span className="text-muted-foreground">
@@ -361,6 +523,73 @@ export default function OrderList() {
           })}
         </div>
       )}
+
+      {/* Dialog Ajukan Retur */}
+      <Dialog
+        open={returnDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReturnDialog(null);
+            setReturnReason("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-cengkeh-brown">
+              Ajukan Retur
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              {returnDialog && (
+                <>
+                  Ajukan retur untuk produk{" "}
+                  <span className="font-semibold text-cengkeh-brown">
+                    &ldquo;{returnDialog.productTitle}&rdquo;
+                  </span>
+                  . Penjual akan meninjau permintaan Anda.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-cengkeh-brown">
+              Alasan Retur
+            </label>
+            <Textarea
+              value={returnReason}
+              onChange={(e) => setReturnReason(e.target.value)}
+              placeholder="Tulis alasan retur (minimal 5 karakter)..."
+              className="resize-none text-sm h-20"
+              minLength={5}
+            />
+          </div>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setReturnDialog(null);
+                setReturnReason("");
+              }}
+              className="text-cengkeh-brown"
+            >
+              Batal
+            </Button>
+            <Button
+              size="sm"
+              disabled={returnReason.trim().length < 5 || submittingReturn}
+              className="bg-cengkeh-brown hover:bg-cengkeh-darker-brown text-cengkeh-beige"
+              onClick={handleSubmitReturn}
+            >
+              {submittingReturn ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                "Ajukan Retur"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

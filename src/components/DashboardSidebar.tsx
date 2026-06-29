@@ -20,7 +20,7 @@ import {
   Package2,
   ShoppingBasket,
   Store,
-  TrendingUp,
+  Ticket,
   User2,
 } from "lucide-react";
 import { auth } from "@/auth";
@@ -126,28 +126,31 @@ export async function DashboardSidebar() {
               </SidebarMenu>
             </SidebarGroup>
 
-            {/* <SidebarGroup className="px-2">
+            <SidebarGroup className="px-2">
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild className="font-semibold">
-                    <SidebarMenuLink href="/dashboard/order-list">
+                    <SidebarMenuLink href="/dashboard/orders">
                       <ClipboardList className="size-4!" />
-                      Daftar Pesanan
+                      Pesanan Masuk
                     </SidebarMenuLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
+            </SidebarGroup>
+
+            <SidebarGroup className="px-2">
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild className="font-semibold">
-                    <SidebarMenuLink href="/dashboard/mountly-reports">
-                      <TrendingUp className="size-4!" />
-                      Laporan Bulanan
+                    <SidebarMenuLink href="/dashboard/vouchers">
+                      <Ticket className="size-4!" />
+                      Voucher
                     </SidebarMenuLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
-            </SidebarGroup> */}
+            </SidebarGroup>
           </SidebarContent>
         </>
       ) : session?.user.role === "pembeli" ? (
