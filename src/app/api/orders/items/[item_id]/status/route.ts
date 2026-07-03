@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/index";
-import { order_items } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { order_items, products } from "@/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -33,24 +33,56 @@ export async function PATCH(
     const { item_id } = await params;
     const body = await req.json();
     const { fulfillment_status } = updateSchema.parse(body);
+    const itemId = Number(item_id);
 
-    // Update hanya jika order_item milik seller ini
+    // Ambil status saat ini untuk mencegah pengurangan stok ganda
+    const [current] = await db
+      .select({
+        fulfillment_status: order_items.fulfillment_status,
+        product_id: order_items.product_id,
+        quantity: order_items.quantity,
+      })
+      .from(order_items)
+      .where(
+        and(
+          eq(order_items.id, itemId),
+          eq(order_items.seller_id, session.user.seller_id),
+        ),
+      )
+      .limit(1);
+
+    if (!current) {
+      return NextResponse.json(
+        { success: false, message: "Item tidak ditemukan." },
+        { status: 404 },
+      );
+    }
+
+    // Update status
     const [updated] = await db
       .update(order_items)
       .set({ fulfillment_status })
       .where(
         and(
-          eq(order_items.id, Number(item_id)),
+          eq(order_items.id, itemId),
           eq(order_items.seller_id, session.user.seller_id),
         ),
       )
       .returning();
 
-    if (!updated) {
-      return NextResponse.json(
-        { success: false, message: "Item tidak ditemukan." },
-        { status: 404 },
-      );
+    // Kurangi stok & tambah sold_count / buyer_count saat transisi ke "selesai"
+    if (
+      fulfillment_status === "selesai" &&
+      current.fulfillment_status !== "selesai"
+    ) {
+      await db
+        .update(products)
+        .set({
+          stock: sql`${products.stock} - ${current.quantity}`,
+          sold_count: sql`${products.sold_count} + ${current.quantity}`,
+          buyer_count: sql`${products.buyer_count} + 1`,
+        })
+        .where(eq(products.id, current.product_id));
     }
 
     return NextResponse.json({ success: true, data: updated });
