@@ -6,20 +6,21 @@ import { db } from "@/index";
 import { orders, order_items } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-/** PATCH — Penjual konfirmasi barang retur sudah sampai kembali → refund */
+/** PATCH — Penjual/Pembeli konfirmasi barang retur sudah sampai kembali → refund */
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ item_id: string }> },
 ) {
   const session = await auth();
 
-  if (!session?.user?.seller_id) {
+  // Boleh penjual ATAU pembeli yang login
+  if (!session?.user?.id && !session?.user?.seller_id) {
     return NextResponse.json(
       {
         success: false,
-        message: "Hanya penjual yang bisa mengonfirmasi retur.",
+        message: "Kamu harus login.",
       },
-      { status: 403 },
+      { status: 401 },
     );
   }
 
@@ -80,7 +81,7 @@ export async function PATCH(
     }
 
     // Update status ke "refunded"
-    const updated = await confirmReturnArrived(itemId, session.user.seller_id);
+    const updated = await confirmReturnArrived(itemId);
 
     if (!updated) {
       return NextResponse.json(

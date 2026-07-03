@@ -543,6 +543,33 @@ export default function OrderList() {
                                 </button>
                               )}
 
+                              {/* Tombol Konfirmasi Barang Kembali (pembeli) */}
+                              {isPaid &&
+                                item.return_status === "approved" && (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      try {
+                                        await axios.patch(
+                                          `/api/orders/items/${item.id}/return/confirm`,
+                                        );
+                                        toast.success(
+                                          "Barang dikonfirmasi kembali. Dana akan dikembalikan.",
+                                        );
+                                        fetchOrders();
+                                      } catch {
+                                        toast.error(
+                                          "Gagal mengonfirmasi.",
+                                        );
+                                      }
+                                    }}
+                                    className="self-start flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-blue-50 border border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors"
+                                  >
+                                    <Truck className="size-2.5" />
+                                    Konfirmasi Barang Kembali
+                                  </button>
+                                )}
+
                               {/* Tombol Ajukan Pembatalan */}
                               {canCancel && (
                                 <button

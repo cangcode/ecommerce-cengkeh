@@ -340,7 +340,9 @@ export default function SellerOrderList() {
         })),
       );
       const label = action === "approved" ? "disetujui" : "ditolak";
-      toast.success(`Pembatalan ${label}.`);
+      toast.success(
+        `Pembatalan ${label}. ${action === "approved" ? "Dana dikembalikan ke pembeli." : ""}`,
+      );
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Gagal menanggapi pembatalan";
