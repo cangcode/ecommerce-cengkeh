@@ -101,9 +101,7 @@ export async function POST(req: Request) {
       const totalWeightKg = orderItemRows.reduce(
         (sum, i) =>
           sum +
-          (i.product_weight_unit === "kg"
-            ? i.quantity
-            : i.quantity / 1000),
+          (i.product_weight_unit === "kg" ? i.quantity : i.quantity / 1000),
         0,
       );
       const voucherResult = await applyVoucherCode(
@@ -212,7 +210,10 @@ export async function POST(req: Request) {
     if (appliedVoucherId) {
       await db
         .update(vouchers)
-        .set({ used_count: sql`${vouchers.used_count} + 1`, updated_at: new Date() })
+        .set({
+          used_count: sql`${vouchers.used_count} + 1`,
+          updated_at: new Date(),
+        })
         .where(eq(vouchers.id, appliedVoucherId));
     }
 

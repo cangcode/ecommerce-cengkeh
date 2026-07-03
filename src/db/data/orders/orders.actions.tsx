@@ -232,3 +232,25 @@ export async function respondReturnItem(
 
   return updated ?? null;
 }
+
+/** Penjual konfirmasi barang retur sudah sampai kembali → set status refunded */
+export async function confirmReturnArrived(
+  itemId: number,
+  sellerId: number,
+) {
+  const [updated] = await db
+    .update(order_items)
+    .set({
+      return_status: "refunded",
+    })
+    .where(
+      and(
+        eq(order_items.id, itemId),
+        eq(order_items.seller_id, sellerId),
+        eq(order_items.return_status, "approved"),
+      ),
+    )
+    .returning();
+
+  return updated ?? null;
+}

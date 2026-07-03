@@ -139,7 +139,7 @@ const RETURN_CONFIG: Record<
     icon: <XCircle className="size-2.5" />,
   },
   refunded: {
-    label: "Dana Dikembalikan",
+    label: "Barang Kembali",
     className: "border-blue-400 text-blue-700 bg-blue-50",
     icon: <CreditCard className="size-2.5" />,
   },
@@ -186,7 +186,7 @@ export default function SellerOrderList() {
     toLabel: string;
     newStatus: FulfillmentStatus | null;
     isReturnAction?: boolean;
-    returnAction?: "approved" | "rejected";
+    returnAction?: "approved" | "rejected" | "confirm_arrived";
   } | null>(null);
   const [respondingReturnId, setRespondingReturnId] = useState<number | null>(
     null,
@@ -234,7 +234,6 @@ export default function SellerOrderList() {
     try {
       await axios.patch(`/api/orders/items/${itemId}/return/respond`, {
         action,
-        refund: action === "approved",
       });
       const newStatus: ReturnStatus =
         action === "approved" ? "approved" : "rejected";
@@ -247,11 +246,33 @@ export default function SellerOrderList() {
         })),
       );
       const label = action === "approved" ? "disetujui" : "ditolak";
-      toast.success(
-        `Retur ${label}. ${action === "approved" ? "Dana akan dikembalikan ke pembeli." : ""}`,
-      );
+      toast.success(`Retur ${label}.`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Gagal menanggapi retur";
+      toast.error(msg);
+    } finally {
+      setRespondingReturnId(null);
+    }
+  };
+
+  const handleConfirmReturnArrived = async (itemId: number) => {
+    if (!session?.user?.seller_id) return;
+    setConfirmDialog(null);
+    setRespondingReturnId(itemId);
+    try {
+      await axios.patch(`/api/orders/items/${itemId}/return/confirm`);
+      setOrders((prev) =>
+        prev.map((o) => ({
+          ...o,
+          items: o.items.map((i) =>
+            i.id === itemId ? { ...i, return_status: "refunded" as ReturnStatus } : i,
+          ),
+        })),
+      );
+      toast.success("Barang dikonfirmasi kembali. Dana dikembalikan ke pembeli.");
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Gagal konfirmasi retur";
       toast.error(msg);
     } finally {
       setRespondingReturnId(null);
@@ -670,6 +691,32 @@ export default function SellerOrderList() {
                                 </button>
                               </div>
                             )}
+
+                            {/* Tombol konfirmasi barang kembali (setelah disetujui) */}
+                            {isPaid && item.return_status === "approved" && (
+                              <button
+                                type="button"
+                                disabled={respondingReturnId === item.id}
+                                onClick={() =>
+                                  setConfirmDialog({
+                                    itemId: item.id,
+                                    fromLabel: "Retur Disetujui",
+                                    toLabel: "Barang Kembali & Dana Dikembalikan",
+                                    newStatus: null,
+                                    isReturnAction: true,
+                                    returnAction: "confirm_arrived",
+                                  })
+                                }
+                                className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-blue-50 border border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors disabled:opacity-50"
+                              >
+                                {respondingReturnId === item.id ? (
+                                  <Loader2 className="size-2.5 animate-spin" />
+                                ) : (
+                                  <Truck className="size-2.5" />
+                                )}
+                                Konfirmasi Barang Kembali
+                              </button>
+                            )}
                           </div>
                         );
                       })}
@@ -774,10 +821,14 @@ export default function SellerOrderList() {
                   confirmDialog.isReturnAction &&
                   confirmDialog.returnAction
                 ) {
-                  handleReturnResponse(
-                    confirmDialog.itemId,
-                    confirmDialog.returnAction,
-                  );
+                  if (confirmDialog.returnAction === "confirm_arrived") {
+                    handleConfirmReturnArrived(confirmDialog.itemId);
+                  } else {
+                    handleReturnResponse(
+                      confirmDialog.itemId,
+                      confirmDialog.returnAction,
+                    );
+                  }
                 } else if (confirmDialog.newStatus) {
                   updateStatus(confirmDialog.itemId, confirmDialog.newStatus);
                 }

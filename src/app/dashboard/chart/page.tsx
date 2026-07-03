@@ -238,7 +238,10 @@ export default function ChartPage() {
     setApplyingVoucher(true);
     setVoucherError(null);
     try {
-      const itemsTotal = sellerGroups.reduce((sum, g) => sum + sellerSubtotal(g), 0);
+      const itemsTotal = sellerGroups.reduce(
+        (sum, g) => sum + sellerSubtotal(g),
+        0,
+      );
       const totalWeightKg = sellerGroups.reduce(
         (sum, g) => sum + sellerTotalWeightKg(g),
         0,
@@ -745,7 +748,8 @@ export default function ChartPage() {
                   {voucherLabel ? (
                     <div className="flex items-center justify-between rounded-md bg-green-50 border border-green-200 p-2 text-xs">
                       <span className="text-green-700 font-medium">
-                        ✅ {voucherLabel} — Diskon {formatRupiah(voucherDiscount)}
+                        ✅ {voucherLabel} — Diskon{" "}
+                        {formatRupiah(voucherDiscount)}
                       </span>
                       <button
                         type="button"
@@ -766,7 +770,9 @@ export default function ChartPage() {
                         placeholder="Masukkan kode voucher"
                         className="h-9 text-xs font-mono"
                         maxLength={20}
-                        onKeyDown={(e) => e.key === "Enter" && handleApplyVoucher()}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleApplyVoucher()
+                        }
                       />
                       <Button
                         size="sm"

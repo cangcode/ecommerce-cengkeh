@@ -24,7 +24,9 @@ export type VoucherApplyResult = {
   discount_amount?: number;
 };
 
-export async function getSellerVouchers(sellerId: number): Promise<VoucherRow[]> {
+export async function getSellerVouchers(
+  sellerId: number,
+): Promise<VoucherRow[]> {
   return db
     .select()
     .from(vouchers)
@@ -51,7 +53,7 @@ export async function createVoucher(
       discount_type: data.discount_type,
       discount_value: data.discount_value,
       max_discount:
-        data.discount_type === "percent" ? data.max_discount ?? null : null,
+        data.discount_type === "percent" ? (data.max_discount ?? null) : null,
       usage_limit: data.usage_limit,
       expires_at: data.expires_at ? new Date(data.expires_at) : null,
     })

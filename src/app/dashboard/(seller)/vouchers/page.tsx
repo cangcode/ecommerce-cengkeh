@@ -3,12 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -119,7 +114,9 @@ export default function SellerVouchersPage() {
     try {
       await axios.patch(`/api/vouchers/${v.id}`);
       fetchVouchers();
-      toast.success(v.is_active ? "Voucher dinonaktifkan." : "Voucher diaktifkan.");
+      toast.success(
+        v.is_active ? "Voucher dinonaktifkan." : "Voucher diaktifkan.",
+      );
     } catch {
       toast.error("Gagal mengubah status.");
     }
@@ -197,21 +194,23 @@ export default function SellerVouchersPage() {
           {vouchers.map((v) => {
             const expired = isExpired(v);
             const depleted = v.used_count >= v.usage_limit;
-            const label =
-              !v.is_active
-                ? "🔴 Nonaktif"
-                : expired
-                  ? "⏰ Kadaluarsa"
-                  : depleted
-                    ? "✅ Habis"
-                    : "🟢 Aktif";
+            const label = !v.is_active
+              ? "🔴 Nonaktif"
+              : expired
+                ? "⏰ Kadaluarsa"
+                : depleted
+                  ? "✅ Habis"
+                  : "🟢 Aktif";
             const labelClass =
               !v.is_active || expired || depleted
                 ? "bg-muted text-muted-foreground"
                 : "bg-green-50 text-green-700 border-green-300";
 
             return (
-              <Card key={v.id} className={!v.is_active || expired ? "opacity-60" : ""}>
+              <Card
+                key={v.id}
+                className={!v.is_active || expired ? "opacity-60" : ""}
+              >
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
@@ -220,7 +219,10 @@ export default function SellerVouchersPage() {
                         {v.code}
                       </CardTitle>
                     </div>
-                    <Badge variant="outline" className={`text-[10px] ${labelClass}`}>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] ${labelClass}`}
+                    >
                       {label}
                     </Badge>
                   </div>
@@ -228,7 +230,10 @@ export default function SellerVouchersPage() {
                 <CardContent className="space-y-3">
                   {/* Detail diskon */}
                   <div className="flex flex-wrap gap-2 text-sm">
-                    <Badge variant="outline" className="text-xs bg-cengkeh-beige/30">
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-cengkeh-beige/30"
+                    >
                       {v.discount_type === "fixed"
                         ? `Potongan ${formatRupiah(v.discount_value)}`
                         : v.discount_type === "per_unit"
@@ -329,7 +334,10 @@ export default function SellerVouchersPage() {
                 <Select
                   value={form.discount_type}
                   onValueChange={(v) =>
-                    setForm({ ...form, discount_type: v as "fixed" | "percent" | "per_unit" })
+                    setForm({
+                      ...form,
+                      discount_type: v as "fixed" | "percent" | "per_unit",
+                    })
                   }
                 >
                   <SelectTrigger className="h-9 text-xs">
@@ -356,7 +364,13 @@ export default function SellerVouchersPage() {
                   onChange={(e) =>
                     setForm({ ...form, discount_value: e.target.value })
                   }
-                  placeholder={form.discount_type === "per_unit" ? "5000" : form.discount_type === "fixed" ? "5000" : "10"}
+                  placeholder={
+                    form.discount_type === "per_unit"
+                      ? "5000"
+                      : form.discount_type === "fixed"
+                        ? "5000"
+                        : "10"
+                  }
                   min={1}
                 />
               </div>

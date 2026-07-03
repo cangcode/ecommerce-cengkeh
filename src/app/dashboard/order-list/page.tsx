@@ -107,7 +107,7 @@ const RETURN_LABELS: Record<
     className: "border-red-300 text-red-600 bg-red-50",
   },
   refunded: {
-    label: "Dana Dikembalikan",
+    label: "Barang Kembali",
     className: "border-blue-400 text-blue-700 bg-blue-50",
   },
 };

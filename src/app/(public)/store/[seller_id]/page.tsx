@@ -1,10 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Store, Flame, MessageCircle } from "lucide-react";
 import { StoreProductCard } from "@/components/StoreProductCard";
 import type { ProductForCart } from "@/components/AddToCartDialog";
