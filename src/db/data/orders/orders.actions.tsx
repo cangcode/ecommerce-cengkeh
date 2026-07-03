@@ -25,6 +25,8 @@ export type ReturnStatus =
   | "rejected"
   | "refunded";
 
+export type CancellationStatus = "none" | "requested" | "approved" | "rejected";
+
 export type OrderItemRow = {
   id: number;
   order_id: number;
@@ -41,6 +43,9 @@ export type OrderItemRow = {
   return_status: ReturnStatus;
   return_reason: string | null;
   return_responded_at: Date | null;
+  cancellation_status: CancellationStatus;
+  cancel_reason: string | null;
+  cancel_responded_at: Date | null;
 };
 
 export type OrderRow = {
@@ -99,7 +104,7 @@ export async function getUserOrders(userId: string): Promise<OrderRow[]> {
         .from(order_items)
         .where(eq(order_items.order_id, order.id))
         .orderBy(order_items.id);
-      return { ...order, items: items as OrderItemRow[] };
+      return { ...order, items: items as unknown as OrderItemRow[] };
     }),
   );
 
@@ -184,7 +189,7 @@ export async function getSellerOrders(
     village_name: order.village_name,
     items: sellerItems.filter(
       (i) => i.order_id === order.id,
-    ) as SellerOrderItemRow[],
+    ) as unknown as SellerOrderItemRow[],
   }));
 }
 
@@ -233,11 +238,58 @@ export async function respondReturnItem(
   return updated ?? null;
 }
 
-/** Penjual konfirmasi barang retur sudah sampai kembali → set status refunded */
-export async function confirmReturnArrived(
+/** Pembeli mengajukan pembatalan — item yang masih menunggu/diproses */
+export async function requestCancelItem(itemId: number, reason: string) {
+  const [updated] = await db
+    .update(order_items)
+    .set({
+      cancellation_status: "requested",
+      cancel_reason: reason,
+    })
+    .where(
+      and(
+        eq(order_items.id, itemId),
+        eq(order_items.fulfillment_status, "menunggu"),
+        eq(order_items.cancellation_status, "none"),
+      ),
+    )
+    .returning();
+
+  return updated ?? null;
+}
+
+/** Penjual menyetujui/menolak pembatalan */
+export async function respondCancelItem(
   itemId: number,
   sellerId: number,
+  action: "approved" | "rejected",
 ) {
+  const setFields: Record<string, unknown> = {
+    cancellation_status: action,
+    cancel_responded_at: new Date(),
+  };
+  // Jika disetujui, langsung batalkan pesanan
+  if (action === "approved") {
+    setFields.fulfillment_status = "dibatalkan";
+  }
+
+  const [updated] = await db
+    .update(order_items)
+    .set(setFields)
+    .where(
+      and(
+        eq(order_items.id, itemId),
+        eq(order_items.seller_id, sellerId),
+        eq(order_items.cancellation_status, "requested"),
+      ),
+    )
+    .returning();
+
+  return updated ?? null;
+}
+
+/** Penjual konfirmasi barang retur sudah sampai kembali → set status refunded */
+export async function confirmReturnArrived(itemId: number, sellerId: number) {
   const [updated] = await db
     .update(order_items)
     .set({

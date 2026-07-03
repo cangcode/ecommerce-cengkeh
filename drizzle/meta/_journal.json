@@ -5,71 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1781108480784,
-      "tag": "0000_past_arachne",
+      "when": 1783085959197,
+      "tag": "0000_cute_thor",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1781109169379,
-      "tag": "0001_typical_enchantress",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1781109988431,
-      "tag": "0002_funny_silvermane",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1781245463633,
-      "tag": "0003_marvelous_kinsey_walden",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1781516379119,
-      "tag": "0004_chemical_lucky_pierre",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1781614469927,
-      "tag": "0005_curved_firebrand",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1781750000000,
-      "tag": "0006_fulfillment_status",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1781800000000,
-      "tag": "0007_return_status",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1781900000000,
-      "tag": "0008_vouchers",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1782000000000,
-      "tag": "0009_per_unit_voucher",
+      "when": 1783086263697,
+      "tag": "0001_smart_chimera",
       "breakpoints": true
     }
   ]

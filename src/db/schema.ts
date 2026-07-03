@@ -187,6 +187,13 @@ export const returnStatusEnum = pgEnum("return_status", [
   "refunded",
 ]);
 
+export const cancellationStatusEnum = pgEnum("cancellation_status", [
+  "none",
+  "requested",
+  "approved",
+  "rejected",
+]);
+
 // table orders (satu row = satu checkout)
 export const orders = pgTable("orders", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
@@ -242,6 +249,11 @@ export const order_items = pgTable("order_items", {
   return_status: returnStatusEnum("return_status").notNull().default("none"),
   return_reason: text("return_reason"),
   return_responded_at: timestamp("return_responded_at", { withTimezone: true }),
+  cancellation_status: cancellationStatusEnum("cancellation_status")
+    .notNull()
+    .default("none"),
+  cancel_reason: text("cancel_reason"),
+  cancel_responded_at: timestamp("cancel_responded_at", { withTimezone: true }),
   created_at: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

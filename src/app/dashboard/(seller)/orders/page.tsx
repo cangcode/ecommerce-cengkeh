@@ -37,12 +37,14 @@ import {
   Loader2,
   RotateCcw,
   XCircle,
+  Ban,
 } from "lucide-react";
 import {
   getSellerOrders,
   type SellerOrderRow,
   type FulfillmentStatus,
   type ReturnStatus,
+  type CancellationStatus,
 } from "@/db/data/orders/orders.actions";
 import axios from "axios";
 import { toast } from "sonner";
@@ -145,6 +147,28 @@ const RETURN_CONFIG: Record<
   },
 };
 
+const CANCEL_CONFIG: Record<
+  CancellationStatus,
+  { label: string; className: string; icon: React.ReactNode }
+> = {
+  none: { label: "", className: "", icon: null },
+  requested: {
+    label: "Batal Diajukan",
+    className: "border-orange-400 text-orange-700 bg-orange-50",
+    icon: <Ban className="size-2.5" />,
+  },
+  approved: {
+    label: "Batal Disetujui",
+    className: "border-red-400 text-red-600 bg-red-50",
+    icon: <XCircle className="size-2.5" />,
+  },
+  rejected: {
+    label: "Batal Ditolak",
+    className: "border-gray-400 text-gray-600 bg-gray-50",
+    icon: <CheckCircle className="size-2.5" />,
+  },
+};
+
 /**
  * Flow status pemenuhan berbeda berdasarkan metode pengiriman.
  * - antarkan: menunggu → diproses → dikirim → selesai
@@ -187,6 +211,8 @@ export default function SellerOrderList() {
     newStatus: FulfillmentStatus | null;
     isReturnAction?: boolean;
     returnAction?: "approved" | "rejected" | "confirm_arrived";
+    isCancelAction?: boolean;
+    cancelAction?: "approved" | "rejected";
   } | null>(null);
   const [respondingReturnId, setRespondingReturnId] = useState<number | null>(
     null,
@@ -265,14 +291,59 @@ export default function SellerOrderList() {
         prev.map((o) => ({
           ...o,
           items: o.items.map((i) =>
-            i.id === itemId ? { ...i, return_status: "refunded" as ReturnStatus } : i,
+            i.id === itemId
+              ? { ...i, return_status: "refunded" as ReturnStatus }
+              : i,
           ),
         })),
       );
-      toast.success("Barang dikonfirmasi kembali. Dana dikembalikan ke pembeli.");
+      toast.success(
+        "Barang dikonfirmasi kembali. Dana dikembalikan ke pembeli.",
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Gagal konfirmasi retur";
+      toast.error(msg);
+    } finally {
+      setRespondingReturnId(null);
+    }
+  };
+
+  const handleCancelResponse = async (
+    itemId: number,
+    action: "approved" | "rejected",
+  ) => {
+    if (!session?.user?.seller_id) return;
+    setConfirmDialog(null);
+    setRespondingReturnId(itemId);
+    try {
+      await axios.patch(`/api/orders/items/${itemId}/cancel/respond`, {
+        action,
+      });
+      const newStatus: CancellationStatus =
+        action === "approved" ? "approved" : "rejected";
+      const newFulfillment: FulfillmentStatus | undefined =
+        action === "approved" ? "dibatalkan" : undefined;
+      setOrders((prev) =>
+        prev.map((o) => ({
+          ...o,
+          items: o.items.map((i) =>
+            i.id === itemId
+              ? {
+                  ...i,
+                  cancellation_status: newStatus,
+                  ...(newFulfillment
+                    ? { fulfillment_status: newFulfillment }
+                    : {}),
+                }
+              : i,
+          ),
+        })),
+      );
+      const label = action === "approved" ? "disetujui" : "ditolak";
+      toast.success(`Pembatalan ${label}.`);
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : "Gagal konfirmasi retur";
+        err instanceof Error ? err.message : "Gagal menanggapi pembatalan";
       toast.error(msg);
     } finally {
       setRespondingReturnId(null);
@@ -585,6 +656,22 @@ export default function SellerOrderList() {
                                     {RETURN_CONFIG[item.return_status].label}
                                   </Badge>
                                 )}
+                                {/* Badge status pembatalan */}
+                                {item.cancellation_status !== "none" && (
+                                  <Badge
+                                    variant="outline"
+                                    className={`gap-1 text-[10px] py-0 h-5 ${CANCEL_CONFIG[item.cancellation_status].className}`}
+                                  >
+                                    {
+                                      CANCEL_CONFIG[item.cancellation_status]
+                                        .icon
+                                    }
+                                    {
+                                      CANCEL_CONFIG[item.cancellation_status]
+                                        .label
+                                    }
+                                  </Badge>
+                                )}
                               </div>
 
                               {isPaid &&
@@ -701,7 +788,8 @@ export default function SellerOrderList() {
                                   setConfirmDialog({
                                     itemId: item.id,
                                     fromLabel: "Retur Disetujui",
-                                    toLabel: "Barang Kembali & Dana Dikembalikan",
+                                    toLabel:
+                                      "Barang Kembali & Dana Dikembalikan",
                                     newStatus: null,
                                     isReturnAction: true,
                                     returnAction: "confirm_arrived",
@@ -717,6 +805,57 @@ export default function SellerOrderList() {
                                 Konfirmasi Barang Kembali
                               </button>
                             )}
+
+                            {/* Alasan pembatalan + tombol approve/reject */}
+                            {item.cancel_reason && (
+                              <p className="text-muted-foreground italic">
+                                Alasan batal: &ldquo;{item.cancel_reason}&rdquo;
+                              </p>
+                            )}
+                            {isPaid &&
+                              item.cancellation_status === "requested" && (
+                                <div className="flex gap-1">
+                                  <button
+                                    type="button"
+                                    disabled={respondingReturnId === item.id}
+                                    onClick={() =>
+                                      setConfirmDialog({
+                                        itemId: item.id,
+                                        fromLabel: "Batal Diajukan",
+                                        toLabel: "Batal Disetujui",
+                                        newStatus: null,
+                                        isCancelAction: true,
+                                        cancelAction: "approved",
+                                      })
+                                    }
+                                    className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-green-50 border border-green-300 text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
+                                  >
+                                    {respondingReturnId === item.id ? (
+                                      <Loader2 className="size-2.5 animate-spin" />
+                                    ) : (
+                                      <CheckCircle className="size-2.5" />
+                                    )}
+                                    Setujui Pembatalan
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={respondingReturnId === item.id}
+                                    onClick={() =>
+                                      setConfirmDialog({
+                                        itemId: item.id,
+                                        fromLabel: "Batal Diajukan",
+                                        toLabel: "Batal Ditolak",
+                                        newStatus: null,
+                                        isCancelAction: true,
+                                        cancelAction: "rejected",
+                                      })
+                                    }
+                                    className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
+                                  >
+                                    ✕ Tolak Pembatalan
+                                  </button>
+                                </div>
+                              )}
                           </div>
                         );
                       })}
@@ -818,6 +957,14 @@ export default function SellerOrderList() {
               onClick={() => {
                 if (!confirmDialog) return;
                 if (
+                  confirmDialog.isCancelAction &&
+                  confirmDialog.cancelAction
+                ) {
+                  handleCancelResponse(
+                    confirmDialog.itemId,
+                    confirmDialog.cancelAction,
+                  );
+                } else if (
                   confirmDialog.isReturnAction &&
                   confirmDialog.returnAction
                 ) {
