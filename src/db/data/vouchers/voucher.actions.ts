@@ -6,9 +6,8 @@ export type VoucherRow = {
   id: number;
   seller_id: number;
   code: string;
-  discount_type: "fixed" | "percent";
+  discount_type: "fixed" | "percent" | "per_unit";
   discount_value: number;
-  min_purchase: number | null;
   max_discount: number | null;
   usage_limit: number;
   used_count: number;
@@ -37,9 +36,8 @@ export async function createVoucher(
   sellerId: number,
   data: {
     code: string;
-    discount_type: "fixed" | "percent";
+    discount_type: "fixed" | "percent" | "per_unit";
     discount_value: number;
-    min_purchase?: number;
     max_discount?: number;
     usage_limit?: number;
     expires_at?: string;
@@ -52,8 +50,8 @@ export async function createVoucher(
       code: data.code,
       discount_type: data.discount_type,
       discount_value: data.discount_value,
-      min_purchase: data.min_purchase,
-      max_discount: data.discount_type === "percent" ? data.max_discount ?? null : null,
+      max_discount:
+        data.discount_type === "percent" ? data.max_discount ?? null : null,
       usage_limit: data.usage_limit,
       expires_at: data.expires_at ? new Date(data.expires_at) : null,
     })
@@ -90,6 +88,7 @@ export async function deleteVoucher(voucherId: number, sellerId: number) {
 export async function applyVoucherCode(
   code: string,
   subtotal: number,
+  totalWeightKg?: number,
 ): Promise<VoucherApplyResult> {
   const normalizedCode = code.trim().toUpperCase();
 
@@ -113,19 +112,18 @@ export async function applyVoucherCode(
     return { valid: false, message: "Voucher sudah mencapai batas pemakaian." };
   }
 
-  // Cek min purchase
-  const minPurchase = voucher.min_purchase ?? 0;
-  if (subtotal < minPurchase) {
-    return {
-      valid: false,
-      message: `Minimal belanja ${minPurchase.toLocaleString('id-ID')} untuk pakai voucher ini.`,
-    };
-  }
-
   // Hitung diskon
   let discount = 0;
   if (voucher.discount_type === "fixed") {
     discount = voucher.discount_value;
+  } else if (voucher.discount_type === "per_unit") {
+    if (totalWeightKg == null || totalWeightKg <= 0) {
+      return {
+        valid: false,
+        message: "Tidak dapat menghitung berat untuk voucher ini.",
+      };
+    }
+    discount = Math.floor(totalWeightKg * voucher.discount_value);
   } else {
     discount = Math.floor((subtotal * voucher.discount_value) / 100);
     if (voucher.max_discount && discount > voucher.max_discount) {

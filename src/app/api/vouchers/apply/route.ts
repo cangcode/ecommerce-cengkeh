@@ -5,7 +5,7 @@ import { applyVoucherCode } from "@/db/data/vouchers/voucher.actions";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { code, subtotal } = body;
+    const { code, subtotal, total_weight_kg } = body;
 
     if (!code || typeof subtotal !== "number") {
       return NextResponse.json(
@@ -14,7 +14,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await applyVoucherCode(code, subtotal);
+    const result = await applyVoucherCode(
+      code,
+      subtotal,
+      typeof total_weight_kg === "number" ? total_weight_kg : undefined,
+    );
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

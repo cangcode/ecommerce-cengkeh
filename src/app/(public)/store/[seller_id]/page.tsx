@@ -1,14 +1,13 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatRupiah } from "@/lib/utils";
 import { MapPin, Store, Flame, MessageCircle } from "lucide-react";
+import { StoreProductCard } from "@/components/StoreProductCard";
+import type { ProductForCart } from "@/components/AddToCartDialog";
 import {
   getSellerProfileById,
   getProductsBySellerId,
@@ -97,43 +96,10 @@ export default async function StorePage({ params }: Props) {
           </div>
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5">
             {bestSellers.map((product) => (
-              <Card
+              <StoreProductCard
                 key={product.id}
-                className="relative mx-auto w-full max-w-sm py-0 overflow-hidden"
-              >
-                <img
-                  src={product.image_url[0]?.secure_url}
-                  alt={product.title}
-                  className="relative z-20 aspect-video w-full object-cover"
-                />
-                <CardHeader className="p-3 md:px-3 space-y-1.5">
-                  <CardTitle className="text-sm sm:text-base leading-tight line-clamp-1">
-                    {product.title}
-                  </CardTitle>
-                  <div className="flex gap-1.5 pt-1.5 flex-wrap">
-                    <Badge className="text-[10px] sm:text-xs px-1.5 py-0">
-                      {formatRupiah(product.price)}
-                    </Badge>
-                    <span className="text-[10px] sm:text-xs text-cengkeh-brown/60 self-center">
-                      /
-                    </span>
-                    <Badge className="text-[10px] sm:text-xs px-1.5 py-0">
-                      {product.weight_unit}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <div className="flex items-center justify-between p-3 sm:px-6 pt-0">
-                  <div className="text-[11px] sm:text-sm text-cengkeh-darker-brown">
-                    stok:{" "}
-                    <span className="font-bold">
-                      {product.stock} {product.weight_unit}
-                    </span>
-                  </div>
-                  <div className="text-[10px] sm:text-xs font-semibold text-cengkeh-brown">
-                    &nbsp;{product.sold_count} terjual
-                  </div>
-                </div>
-              </Card>
+                product={product as ProductForCart}
+              />
             ))}
           </div>
         </section>
@@ -155,46 +121,10 @@ export default async function StorePage({ params }: Props) {
         ) : (
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5">
             {items.map((product) => (
-              <Card
+              <StoreProductCard
                 key={product.id}
-                className="relative mx-auto w-full max-w-sm py-0 overflow-hidden"
-              >
-                <img
-                  src={product.image_url[0]?.secure_url}
-                  alt={product.title}
-                  className="relative z-20 aspect-video w-full object-cover"
-                />
-                <CardHeader className="p-3 md:px-3 space-y-1.5">
-                  <CardTitle className="text-sm sm:text-base leading-tight line-clamp-1">
-                    {product.title}
-                  </CardTitle>
-                  <CardDescription className="text-[10px] sm:text-xs line-clamp-2">
-                    {product.description}
-                  </CardDescription>
-                  <div className="flex gap-1.5 pt-1.5 flex-wrap">
-                    <Badge className="text-[10px] sm:text-xs px-1.5 py-0">
-                      {formatRupiah(product.price)}
-                    </Badge>
-                    <span className="text-[10px] sm:text-xs text-cengkeh-brown/60 self-center">
-                      /
-                    </span>
-                    <Badge className="text-[10px] sm:text-xs px-1.5 py-0">
-                      {product.weight_unit}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <div className="flex items-center justify-between p-3 sm:px-6 pt-0">
-                  <div className="text-[11px] sm:text-sm text-cengkeh-darker-brown">
-                    stok:{" "}
-                    <span className="font-bold">
-                      {product.stock} {product.weight_unit}
-                    </span>
-                  </div>
-                  <div className="text-[10px] sm:text-xs text-muted-foreground">
-                    {product.sold_count} terjual
-                  </div>
-                </div>
-              </Card>
+                product={product as ProductForCart}
+              />
             ))}
           </div>
         )}

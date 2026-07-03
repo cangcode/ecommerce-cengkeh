@@ -251,6 +251,7 @@ export const order_items = pgTable("order_items", {
 export const voucherDiscountEnum = pgEnum("voucher_discount_type", [
   "fixed",
   "percent",
+  "per_unit",
 ]);
 
 export const vouchers = pgTable("vouchers", {
@@ -261,7 +262,6 @@ export const vouchers = pgTable("vouchers", {
   code: text("code").notNull().unique(),
   discount_type: voucherDiscountEnum("discount_type").notNull(),
   discount_value: bigint("discount_value", { mode: "number" }).notNull(),
-  min_purchase: bigint("min_purchase", { mode: "number" }).default(0),
   max_discount: bigint("max_discount", { mode: "number" }),
   usage_limit: integer("usage_limit").notNull().default(1),
   used_count: integer("used_count").notNull().default(0),

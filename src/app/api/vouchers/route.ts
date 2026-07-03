@@ -13,9 +13,8 @@ const createSchema = z.object({
     .max(20)
     .toUpperCase()
     .regex(/^[A-Z0-9-]+$/, "Hanya huruf besar, angka, dan strip"),
-  discount_type: z.enum(["fixed", "percent"]),
+  discount_type: z.enum(["fixed", "percent", "per_unit"]),
   discount_value: z.coerce.number().min(1, "Minimal 1"),
-  min_purchase: z.coerce.number().min(0).default(0),
   max_discount: z.coerce.number().optional(),
   usage_limit: z.coerce.number().min(1).default(1),
   expires_at: z.string().optional(),
