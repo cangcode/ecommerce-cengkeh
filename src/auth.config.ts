@@ -43,6 +43,12 @@ export const authConfig = {
         if (!user || !isPasswordValid) {
           return null;
         }
+
+        // Cek banned
+        if (user.bannedAt) {
+          return null;
+        }
+
         const sellerProfile = await checkHasSellerProfile(user?.id);
 
         return {

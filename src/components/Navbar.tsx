@@ -40,14 +40,21 @@ const Navbar = () => {
             Produk
           </Link>
 
-          {session && (
+          {session && session.user?.role === "admin" ? (
+            <Link
+              className="text-cengkeh-brown hover:text-cengkeh-darker-brown text-center transition-colors"
+              href={"/admin"}
+            >
+              Admin Panel
+            </Link>
+          ) : session ? (
             <Link
               className="text-cengkeh-brown hover:text-cengkeh-darker-brown text-center transition-colors"
               href={"/dashboard"}
             >
               Dashboard
             </Link>
-          )}
+          ) : null}
         </div>
 
         <button
@@ -93,18 +100,28 @@ const Navbar = () => {
             </Link>
             <Link
               className="text-cengkeh-brown hover:text-cengkeh-darker-brown transition-colors"
-              href={"/"}
+              href={"/product"}
               onClick={() => setIsOpen(false)}
             >
               Produk
             </Link>
-            <Link
-              className="text-cengkeh-brown hover:text-cengkeh-darker-brown transition-colors"
-              href={"/dashboard"}
-              onClick={() => setIsOpen(false)}
-            >
-              Dashboard
-            </Link>
+            {session?.user?.role === "admin" ? (
+              <Link
+                className="text-cengkeh-brown hover:text-cengkeh-darker-brown transition-colors"
+                href={"/admin"}
+                onClick={() => setIsOpen(false)}
+              >
+                Admin Panel
+              </Link>
+            ) : (
+              <Link
+                className="text-cengkeh-brown hover:text-cengkeh-darker-brown transition-colors"
+                href={"/dashboard"}
+                onClick={() => setIsOpen(false)}
+              >
+                Dashboard
+              </Link>
+            )}
             {status === "authenticated" ? (
               <div className="flex flex-col gap-2 pt-2">
                 <AppButton

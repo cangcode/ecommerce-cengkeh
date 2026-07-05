@@ -59,7 +59,7 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="w-150 h-fit font-inter">
+    <div className="w-150 h-fit font-inter px-6 xl:px-70 mt-10">
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-cengkeh-brown">Masuk Akun</h2>
       </div>

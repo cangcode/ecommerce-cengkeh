@@ -1,30 +1,11 @@
 import { Star } from "lucide-react";
+import { getActiveTestimonials } from "@/db/data/testimonials/testimonial.actions";
 
-const testimonials = [
-  {
-    name: "Pak Rahman",
-    role: "Pedagang Pasar Enrekang",
-    quote:
-      "Cengkeh dari sini selalu fresh dan harum. Saya udah langganan dari awal, nggak pernah kecewa!",
-    rating: 5,
-  },
-  {
-    name: "Bu Nurhayati",
-    role: "Pemilik Usaha Rempah",
-    quote:
-      "Harga grosirnya sangat membantu usaha saya. Kualitas cengkehnya juga konsisten bagus.",
-    rating: 5,
-  },
-  {
-    name: "Pak Supardi",
-    role: "Petani & Pembeli",
-    quote:
-      "Platformnya mudah digunakan, meskipun saya kurang paham teknologi. Transaksinya aman.",
-    rating: 4,
-  },
-];
+const Testimonials = async () => {
+  const testimonials = await getActiveTestimonials();
 
-const Testimonials = () => {
+  if (testimonials.length === 0) return null;
+
   return (
     <section className="w-full px-6 py-20 xl:px-70 bg-cengkeh-beige/20">
       {/* Header */}

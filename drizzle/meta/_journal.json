@@ -15,6 +15,20 @@
       "when": 1783086263697,
       "tag": "0001_smart_chimera",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783158648110,
+      "tag": "0002_wild_sharon_carter",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783162887028,
+      "tag": "0003_thick_mikhail_rasputin",
+      "breakpoints": true
     }
   ]
 }

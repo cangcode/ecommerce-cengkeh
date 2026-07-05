@@ -28,8 +28,8 @@ export const users = pgTable("users", {
     .defaultNow()
     .notNull(),
 
-  // Catatan: Jika Anda nanti membuat tabel 'addresses', kolom ini bisa disambung dengan .references(() => addresses.id)
   addressId: bigint("address_id", { mode: "number" }),
+  bannedAt: timestamp("banned_at", { withTimezone: true }),
 });
 
 export const addresses = pgTable("addresses", {
@@ -283,6 +283,19 @@ export const vouchers = pgTable("vouchers", {
     .defaultNow()
     .notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// ── TESTIMONIALS ──
+export const testimonials = pgTable("testimonials", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(),
+  role: text("role").notNull(),
+  quote: text("quote").notNull(),
+  rating: integer("rating").notNull().default(5),
+  is_active: boolean("is_active").notNull().default(true),
+  created_at: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
 });
