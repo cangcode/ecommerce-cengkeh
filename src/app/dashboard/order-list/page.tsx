@@ -37,12 +37,14 @@ import {
   Loader2,
   RotateCcw,
   XCircle,
+  Ban,
 } from "lucide-react";
 import {
   getUserOrders,
   type OrderRow,
   type FulfillmentStatus,
   type ReturnStatus,
+  type CancellationStatus,
 } from "@/db/data/orders/orders.actions";
 import axios from "axios";
 import { toast } from "sonner";
@@ -107,8 +109,27 @@ const RETURN_LABELS: Record<
     className: "border-red-300 text-red-600 bg-red-50",
   },
   refunded: {
-    label: "Dana Dikembalikan",
+    label: "Barang Kembali",
     className: "border-blue-400 text-blue-700 bg-blue-50",
+  },
+};
+
+const CANCEL_LABELS: Record<
+  CancellationStatus,
+  { label: string; className: string }
+> = {
+  none: { label: "", className: "" },
+  requested: {
+    label: "Batal Diajukan",
+    className: "border-orange-400 text-orange-700 bg-orange-50",
+  },
+  approved: {
+    label: "Batal Disetujui",
+    className: "border-red-400 text-red-600 bg-red-50",
+  },
+  rejected: {
+    label: "Batal Ditolak",
+    className: "border-gray-400 text-gray-600 bg-gray-50",
   },
 };
 
@@ -125,6 +146,12 @@ export default function OrderList() {
   } | null>(null);
   const [returnReason, setReturnReason] = useState("");
   const [submittingReturn, setSubmittingReturn] = useState(false);
+  const [cancelDialog, setCancelDialog] = useState<{
+    itemId: number;
+    productTitle: string;
+  } | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [submittingCancel, setSubmittingCancel] = useState(false);
 
   // Inject Midtrans Snap script
   useEffect(() => {
@@ -179,6 +206,28 @@ export default function OrderList() {
       toast.error(msg);
     } finally {
       setSubmittingReturn(false);
+    }
+  };
+
+  const handleSubmitCancel = async () => {
+    if (!cancelDialog || !cancelReason.trim()) return;
+    setSubmittingCancel(true);
+    try {
+      await axios.post(`/api/orders/items/${cancelDialog.itemId}/cancel`, {
+        reason: cancelReason.trim(),
+      });
+      toast.success(
+        "Pembatalan berhasil diajukan. Menunggu konfirmasi penjual.",
+      );
+      setCancelDialog(null);
+      setCancelReason("");
+      fetchOrders();
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Gagal mengajukan pembatalan";
+      toast.error(msg);
+    } finally {
+      setSubmittingCancel(false);
     }
   };
 
@@ -261,6 +310,7 @@ export default function OrderList() {
 
             const isInactive =
               order.status === "expired" || order.status === "failed";
+            const isPaid = order.status === "paid";
 
             return (
               <Card
@@ -364,12 +414,22 @@ export default function OrderList() {
                             item.return_status !== "none"
                               ? RETURN_LABELS[item.return_status]
                               : null;
+                          const cancelCfg =
+                            item.cancellation_status !== "none"
+                              ? CANCEL_LABELS[item.cancellation_status]
+                              : null;
 
                           // Syarat bisa retur: metode antarkan, status dikirim, belum diretur
                           const canReturn =
                             item.shipping_method === "antarkan" &&
                             item.fulfillment_status === "dikirim" &&
                             item.return_status === "none";
+
+                          // Syarat bisa batalkan: paid, status menunggu, belum ada cancel request
+                          const canCancel =
+                            isPaid &&
+                            item.fulfillment_status === "menunggu" &&
+                            item.cancellation_status === "none";
 
                           return (
                             <div
@@ -408,6 +468,26 @@ export default function OrderList() {
                                       )}
                                       {fulfill.label}
                                     </Badge>
+                                    {cancelCfg && (
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-[10px] gap-1 py-0 h-5 ${cancelCfg.className}`}
+                                      >
+                                        {item.cancellation_status ===
+                                          "requested" && (
+                                          <Clock className="size-2.5" />
+                                        )}
+                                        {item.cancellation_status ===
+                                          "approved" && (
+                                          <Ban className="size-2.5" />
+                                        )}
+                                        {item.cancellation_status ===
+                                          "rejected" && (
+                                          <XCircle className="size-2.5" />
+                                        )}
+                                        {cancelCfg.label}
+                                      </Badge>
+                                    )}
                                     {returnCfg && (
                                       <Badge
                                         variant="outline"
@@ -434,6 +514,12 @@ export default function OrderList() {
                                       Alasan: &ldquo;{item.return_reason}&rdquo;
                                     </p>
                                   )}
+                                  {item.cancel_reason && (
+                                    <p className="text-muted-foreground mt-1 italic">
+                                      Alasan batal: &ldquo;{item.cancel_reason}
+                                      &rdquo;
+                                    </p>
+                                  )}
                                 </div>
                                 <span className="font-semibold text-cengkeh-brown shrink-0 ml-3">
                                   {formatRupiah(item.subtotal)}
@@ -454,6 +540,50 @@ export default function OrderList() {
                                 >
                                   <RotateCcw className="size-2.5" />
                                   Ajukan Retur
+                                </button>
+                              )}
+
+                              {/* Tombol Konfirmasi Barang Kembali (pembeli) */}
+                              {isPaid &&
+                                item.return_status === "approved" && (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      try {
+                                        await axios.patch(
+                                          `/api/orders/items/${item.id}/return/confirm`,
+                                        );
+                                        toast.success(
+                                          "Barang dikonfirmasi kembali. Dana akan dikembalikan.",
+                                        );
+                                        fetchOrders();
+                                      } catch {
+                                        toast.error(
+                                          "Gagal mengonfirmasi.",
+                                        );
+                                      }
+                                    }}
+                                    className="self-start flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-blue-50 border border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors"
+                                  >
+                                    <Truck className="size-2.5" />
+                                    Konfirmasi Barang Kembali
+                                  </button>
+                                )}
+
+                              {/* Tombol Ajukan Pembatalan */}
+                              {canCancel && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setCancelDialog({
+                                      itemId: item.id,
+                                      productTitle: item.product_title,
+                                    })
+                                  }
+                                  className="self-start flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 transition-colors"
+                                >
+                                  <Ban className="size-2.5" />
+                                  Ajukan Pembatalan
                                 </button>
                               )}
                             </div>
@@ -585,6 +715,73 @@ export default function OrderList() {
                 <Loader2 className="size-3.5 animate-spin" />
               ) : (
                 "Ajukan Retur"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Ajukan Pembatalan */}
+      <Dialog
+        open={cancelDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCancelDialog(null);
+            setCancelReason("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-cengkeh-brown">
+              Ajukan Pembatalan
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              {cancelDialog && (
+                <>
+                  Ajukan pembatalan untuk produk{" "}
+                  <span className="font-semibold text-cengkeh-brown">
+                    &ldquo;{cancelDialog.productTitle}&rdquo;
+                  </span>
+                  . Penjual akan meninjau permintaan Anda.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-cengkeh-brown">
+              Alasan Pembatalan
+            </label>
+            <Textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Tulis alasan pembatalan (minimal 5 karakter)..."
+              className="resize-none text-sm h-20"
+              minLength={5}
+            />
+          </div>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setCancelDialog(null);
+                setCancelReason("");
+              }}
+              className="text-cengkeh-brown"
+            >
+              Batal
+            </Button>
+            <Button
+              size="sm"
+              disabled={cancelReason.trim().length < 5 || submittingCancel}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleSubmitCancel}
+            >
+              {submittingCancel ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                "Ajukan Pembatalan"
               )}
             </Button>
           </DialogFooter>

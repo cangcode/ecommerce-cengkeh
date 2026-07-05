@@ -98,7 +98,17 @@ export async function POST(req: Request) {
     let voucherDiscount = 0;
     let appliedVoucherId: number | null = null;
     if (voucherCode) {
-      const voucherResult = await applyVoucherCode(voucherCode, itemsTotal);
+      const totalWeightKg = orderItemRows.reduce(
+        (sum, i) =>
+          sum +
+          (i.product_weight_unit === "kg" ? i.quantity : i.quantity / 1000),
+        0,
+      );
+      const voucherResult = await applyVoucherCode(
+        voucherCode,
+        itemsTotal,
+        totalWeightKg,
+      );
       if (voucherResult.valid && voucherResult.discount_amount) {
         voucherDiscount = voucherResult.discount_amount;
         appliedVoucherId = voucherResult.voucher!.id;
@@ -200,7 +210,10 @@ export async function POST(req: Request) {
     if (appliedVoucherId) {
       await db
         .update(vouchers)
-        .set({ used_count: sql`${vouchers.used_count} + 1`, updated_at: new Date() })
+        .set({
+          used_count: sql`${vouchers.used_count} + 1`,
+          updated_at: new Date(),
+        })
         .where(eq(vouchers.id, appliedVoucherId));
     }
 

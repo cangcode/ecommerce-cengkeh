@@ -1,6 +1,6 @@
 import { db } from "@/index"; // koneksi drizzle Anda
-import { users, charts } from "@/db/schema";
-import { eq, or } from "drizzle-orm";
+import { users, charts, seller_profiles } from "@/db/schema";
+import { eq, or, desc, asc, like, sql } from "drizzle-orm";
 import { hash } from "bcrypt-ts";
 import { z } from "zod";
 import { registerSchema } from "./users.schema";
@@ -90,4 +90,128 @@ export async function registerUser(rawInput: RegisterInput) {
     console.error("Error saat registrasi:", error);
     return { success: false, message: "Terjadi kesalahan pada server." };
   }
+}
+
+// ── ADMIN ──
+
+export type AdminUserRow = {
+  id: string;
+  username: string;
+  email: string;
+  role: "admin" | "pembeli" | "penjual";
+  createdAt: Date;
+  hasSellerProfile: boolean;
+  bannedAt: Date | null;
+};
+
+/** Ambil semua user untuk admin */
+export async function getAllUsers(search?: string): Promise<AdminUserRow[]> {
+  const rows = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      role: users.role,
+      createdAt: users.createdAt,
+      bannedAt: users.bannedAt,
+    })
+    .from(users)
+    .orderBy(desc(users.createdAt));
+
+  // Ambil semua seller profile id untuk cek
+  const profileIds = new Set(
+    (
+      await db
+        .select({ user_id: seller_profiles.user_id })
+        .from(seller_profiles)
+    ).map((p) => p.user_id),
+  );
+
+  let result = rows.map((u) => ({
+    ...u,
+    hasSellerProfile: profileIds.has(u.id),
+  }));
+
+  // Cek banned: kolom bannedAt ada di schema tapi Drizzle infer type-nya
+  // Cast manual untuk aman
+  result = result as AdminUserRow[];
+
+  if (search) {
+    const q = search.toLowerCase();
+    result = result.filter(
+      (u) =>
+        u.username.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q),
+    );
+  }
+
+  return result;
+}
+
+/** Admin update role user */
+export async function updateUserRole(
+  userId: string,
+  role: "admin" | "pembeli" | "penjual",
+) {
+  const [updated] = await db
+    .update(users)
+    .set({
+      role,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId))
+    .returning({ id: users.id, role: users.role });
+
+  // Jika role berubah jadi pembeli & belum punya keranjang, buatkan
+  if (updated?.role === "pembeli") {
+    const [existing] = await db
+      .select({ id: charts.id })
+      .from(charts)
+      .where(eq(charts.user_id, userId))
+      .limit(1);
+    if (!existing) {
+      await db.insert(charts).values({ user_id: userId });
+    }
+  }
+
+  return updated ?? null;
+}
+
+/** Admin toggle ban user */
+export async function toggleBanUser(userId: string) {
+  const [user] = await db
+    .select({ bannedAt: users.bannedAt })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!user) return null;
+
+  const isBanned = !!user.bannedAt;
+  const [updated] = await db
+    .update(users)
+    .set({
+      bannedAt: isBanned ? null : new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId))
+    .returning({ id: users.id, bannedAt: users.bannedAt });
+
+  return updated ?? null;
+}
+
+/** Admin reset password user */
+export async function resetUserPassword(userId: string, newPassword: string) {
+  const hashedPassword = await hash(newPassword, 10);
+
+  const [updated] = await db
+    .update(users)
+    .set({
+      passwordHash: hashedPassword,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId))
+    .returning({ id: users.id });
+
+  return updated ?? null;
 }

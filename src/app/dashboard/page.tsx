@@ -1,8 +1,10 @@
 import { auth } from "@/auth";
 import DashboardPenjual from "@/components/pages/DashboardPenjual";
+import DashboardPembeli from "@/components/pages/DashboardPembeli";
 import {
   getDashboardStats,
   getSellerProfileForDashboard,
+  getBuyerDashboardData,
 } from "@/db/data/dashboard/dashboard.actions";
 import { redirect } from "next/navigation";
 
@@ -32,7 +34,13 @@ const Page = async () => {
   }
 
   if (userRole === "pembeli") {
-    return <div>halaman pembeli</div>;
+    if (!userId) {
+      redirect("/login");
+    }
+
+    const data = await getBuyerDashboardData(userId);
+
+    return <DashboardPembeli session={session} data={data} />;
   }
 
   redirect("/login");

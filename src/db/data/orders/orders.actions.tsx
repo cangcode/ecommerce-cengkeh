@@ -9,7 +9,7 @@ import {
   users,
 } from "@/db/schema";
 import { db } from "@/index";
-import { eq, desc, and, inArray } from "drizzle-orm";
+import { eq, desc, and, inArray, lt, sql } from "drizzle-orm";
 
 export type FulfillmentStatus =
   | "menunggu"
@@ -24,6 +24,8 @@ export type ReturnStatus =
   | "approved"
   | "rejected"
   | "refunded";
+
+export type CancellationStatus = "none" | "requested" | "approved" | "rejected";
 
 export type OrderItemRow = {
   id: number;
@@ -41,6 +43,9 @@ export type OrderItemRow = {
   return_status: ReturnStatus;
   return_reason: string | null;
   return_responded_at: Date | null;
+  cancellation_status: CancellationStatus;
+  cancel_reason: string | null;
+  cancel_responded_at: Date | null;
 };
 
 export type OrderRow = {
@@ -65,6 +70,11 @@ export type OrderRow = {
 };
 
 export async function getUserOrders(userId: string): Promise<OrderRow[]> {
+  // Auto-confirm retur yang sudah > 3 hari
+  autoConfirmExpiredReturns().catch((e) =>
+    console.error("⚠️ [AUTO CONFIRM] getUserOrders:", e),
+  );
+
   const result = await db
     .select({
       id: orders.id,
@@ -99,7 +109,7 @@ export async function getUserOrders(userId: string): Promise<OrderRow[]> {
         .from(order_items)
         .where(eq(order_items.order_id, order.id))
         .orderBy(order_items.id);
-      return { ...order, items: items as OrderItemRow[] };
+      return { ...order, items: items as unknown as OrderItemRow[] };
     }),
   );
 
@@ -131,6 +141,11 @@ export type SellerOrderRow = {
 export async function getSellerOrders(
   sellerId: number,
 ): Promise<SellerOrderRow[]> {
+  // Auto-confirm retur yang sudah > 3 hari
+  autoConfirmExpiredReturns().catch((e) =>
+    console.error("⚠️ [AUTO CONFIRM] getSellerOrders:", e),
+  );
+
   // 1. Ambil semua order_items milik seller ini
   const sellerItems = await db
     .select()
@@ -184,7 +199,7 @@ export async function getSellerOrders(
     village_name: order.village_name,
     items: sellerItems.filter(
       (i) => i.order_id === order.id,
-    ) as SellerOrderItemRow[],
+    ) as unknown as SellerOrderItemRow[],
   }));
 }
 
@@ -231,4 +246,123 @@ export async function respondReturnItem(
     .returning();
 
   return updated ?? null;
+}
+
+/** Pembeli mengajukan pembatalan — item yang masih menunggu/diproses */
+export async function requestCancelItem(itemId: number, reason: string) {
+  const [updated] = await db
+    .update(order_items)
+    .set({
+      cancellation_status: "requested",
+      cancel_reason: reason,
+    })
+    .where(
+      and(
+        eq(order_items.id, itemId),
+        eq(order_items.fulfillment_status, "menunggu"),
+        eq(order_items.cancellation_status, "none"),
+      ),
+    )
+    .returning();
+
+  return updated ?? null;
+}
+
+/** Penjual menyetujui/menolak pembatalan */
+export async function respondCancelItem(
+  itemId: number,
+  sellerId: number,
+  action: "approved" | "rejected",
+) {
+  const setFields: Record<string, unknown> = {
+    cancellation_status: action,
+    cancel_responded_at: new Date(),
+  };
+  // Jika disetujui, langsung batalkan pesanan
+  if (action === "approved") {
+    setFields.fulfillment_status = "dibatalkan";
+  }
+
+  const [updated] = await db
+    .update(order_items)
+    .set(setFields)
+    .where(
+      and(
+        eq(order_items.id, itemId),
+        eq(order_items.seller_id, sellerId),
+        eq(order_items.cancellation_status, "requested"),
+      ),
+    )
+    .returning();
+
+  return updated ?? null;
+}
+
+/** Penjual/Pembeli konfirmasi barang retur sudah sampai kembali → set status refunded */
+export async function confirmReturnArrived(itemId: number) {
+  const [updated] = await db
+    .update(order_items)
+    .set({
+      return_status: "refunded",
+    })
+    .where(
+      and(
+        eq(order_items.id, itemId),
+        eq(order_items.return_status, "approved"),
+      ),
+    )
+    .returning();
+
+  return updated ?? null;
+}
+
+/** Auto-konfirmasi retur yang sudah disetujui > 3 hari — jalankan saat fetch orders */
+export async function autoConfirmExpiredReturns() {
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+  const expiredItems = await db
+    .select({
+      id: order_items.id,
+      order_id: order_items.order_id,
+      subtotal: order_items.subtotal,
+    })
+    .from(order_items)
+    .where(
+      and(
+        eq(order_items.return_status, "approved"),
+        lt(order_items.return_responded_at, threeDaysAgo),
+      ),
+    );
+
+  // Import midtrans dynamically to avoid issues
+  if (expiredItems.length === 0) return;
+
+  const { coreApi } = await import("@/lib/midtrans");
+
+  for (const item of expiredItems) {
+    try {
+      // Refund
+      if (item.subtotal > 0) {
+        const [order] = await db
+          .select({ midtrans_order_id: orders.midtrans_order_id })
+          .from(orders)
+          .where(eq(orders.id, item.order_id))
+          .limit(1);
+
+        if (order) {
+          await coreApi.transaction.refund(order.midtrans_order_id, {
+            amount: item.subtotal,
+            reason: "Auto-konfirmasi: barang retur sudah kembali (3 hari)",
+          });
+        }
+      }
+      // Set refunded
+      await db
+        .update(order_items)
+        .set({ return_status: "refunded" as const })
+        .where(eq(order_items.id, item.id));
+    } catch (err) {
+      console.error("⚠️ [AUTO CONFIRM RETURN] Gagal:", err);
+    }
+  }
 }

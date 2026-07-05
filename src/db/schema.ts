@@ -28,8 +28,8 @@ export const users = pgTable("users", {
     .defaultNow()
     .notNull(),
 
-  // Catatan: Jika Anda nanti membuat tabel 'addresses', kolom ini bisa disambung dengan .references(() => addresses.id)
   addressId: bigint("address_id", { mode: "number" }),
+  bannedAt: timestamp("banned_at", { withTimezone: true }),
 });
 
 export const addresses = pgTable("addresses", {
@@ -187,6 +187,13 @@ export const returnStatusEnum = pgEnum("return_status", [
   "refunded",
 ]);
 
+export const cancellationStatusEnum = pgEnum("cancellation_status", [
+  "none",
+  "requested",
+  "approved",
+  "rejected",
+]);
+
 // table orders (satu row = satu checkout)
 export const orders = pgTable("orders", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
@@ -242,6 +249,11 @@ export const order_items = pgTable("order_items", {
   return_status: returnStatusEnum("return_status").notNull().default("none"),
   return_reason: text("return_reason"),
   return_responded_at: timestamp("return_responded_at", { withTimezone: true }),
+  cancellation_status: cancellationStatusEnum("cancellation_status")
+    .notNull()
+    .default("none"),
+  cancel_reason: text("cancel_reason"),
+  cancel_responded_at: timestamp("cancel_responded_at", { withTimezone: true }),
   created_at: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -251,6 +263,7 @@ export const order_items = pgTable("order_items", {
 export const voucherDiscountEnum = pgEnum("voucher_discount_type", [
   "fixed",
   "percent",
+  "per_unit",
 ]);
 
 export const vouchers = pgTable("vouchers", {
@@ -261,7 +274,6 @@ export const vouchers = pgTable("vouchers", {
   code: text("code").notNull().unique(),
   discount_type: voucherDiscountEnum("discount_type").notNull(),
   discount_value: bigint("discount_value", { mode: "number" }).notNull(),
-  min_purchase: bigint("min_purchase", { mode: "number" }).default(0),
   max_discount: bigint("max_discount", { mode: "number" }),
   usage_limit: integer("usage_limit").notNull().default(1),
   used_count: integer("used_count").notNull().default(0),
@@ -271,6 +283,19 @@ export const vouchers = pgTable("vouchers", {
     .defaultNow()
     .notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// ── TESTIMONIALS ──
+export const testimonials = pgTable("testimonials", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(),
+  role: text("role").notNull(),
+  quote: text("quote").notNull(),
+  rating: integer("rating").notNull().default(5),
+  is_active: boolean("is_active").notNull().default(true),
+  created_at: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
 });

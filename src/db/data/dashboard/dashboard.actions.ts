@@ -2,8 +2,14 @@
 
 import { unstable_cache } from "next/cache";
 import { db } from "@/index";
-import { products, seller_profiles } from "@/db/schema";
-import { eq, desc, count, sql } from "drizzle-orm";
+import {
+  products,
+  seller_profiles,
+  orders,
+  order_items,
+  addresses,
+} from "@/db/schema";
+import { eq, desc, count, sql, and, inArray } from "drizzle-orm";
 
 export type DashboardStats = {
   businessName: string;
@@ -20,6 +26,28 @@ export type DashboardStats = {
     image_url: { public_id: string; secure_url: string }[];
     created_at: Date | null;
   }[];
+};
+
+export type BuyerDashboardData = {
+  pendingCount: number;
+  diprosesCount: number;
+  dikirimCount: number;
+  selesaiCount: number;
+  recentOrders: {
+    id: number;
+    midtrans_order_id: string;
+    gross_amount: number;
+    status: "pending" | "paid" | "failed" | "expired";
+    created_at: Date;
+    itemCount: number;
+  }[];
+  defaultAddress: {
+    id: number;
+    recipient_name: string;
+    address: string;
+    district_name: string | null;
+    village_name: string | null;
+  } | null;
 };
 
 const _getDashboardStatsBySellerId = async (
@@ -99,3 +127,121 @@ export const getDashboardStats = async (sellerId: number) =>
       tags: [`dashboard-stats-${sellerId}`],
     },
   )();
+
+/** Ambil data dashboard pembeli */
+export async function getBuyerDashboardData(
+  userId: string,
+): Promise<BuyerDashboardData> {
+  const [
+    pendingCount,
+    diprosesCount,
+    dikirimCount,
+    selesaiCount,
+    recentOrdersRaw,
+    defaultAddr,
+  ] = await Promise.all([
+    // Count items by fulfillment_status via orders
+    db
+      .select({ count: count() })
+      .from(order_items)
+      .innerJoin(orders, eq(order_items.order_id, orders.id))
+      .where(
+        and(
+          eq(orders.user_id, userId),
+          eq(order_items.fulfillment_status, "menunggu"),
+        ),
+      ),
+    db
+      .select({ count: count() })
+      .from(order_items)
+      .innerJoin(orders, eq(order_items.order_id, orders.id))
+      .where(
+        and(
+          eq(orders.user_id, userId),
+          eq(order_items.fulfillment_status, "diproses"),
+        ),
+      ),
+    db
+      .select({ count: count() })
+      .from(order_items)
+      .innerJoin(orders, eq(order_items.order_id, orders.id))
+      .where(
+        and(
+          eq(orders.user_id, userId),
+          eq(order_items.fulfillment_status, "dikirim"),
+        ),
+      ),
+    db
+      .select({ count: count() })
+      .from(order_items)
+      .innerJoin(orders, eq(order_items.order_id, orders.id))
+      .where(
+        and(
+          eq(orders.user_id, userId),
+          eq(order_items.fulfillment_status, "selesai"),
+        ),
+      ),
+    // Recent orders (last 5)
+    db
+      .select({
+        id: orders.id,
+        midtrans_order_id: orders.midtrans_order_id,
+        gross_amount: orders.gross_amount,
+        status: orders.status,
+        created_at: orders.created_at,
+      })
+      .from(orders)
+      .where(eq(orders.user_id, userId))
+      .orderBy(desc(orders.created_at))
+      .limit(5),
+    // Default address
+    db
+      .select({
+        id: addresses.id,
+        recipient_name: addresses.recipient_name,
+        address: addresses.address,
+        district_name: sql<string | null>`NULL`,
+        village_name: sql<string | null>`NULL`,
+      })
+      .from(addresses)
+      .where(and(eq(addresses.user_id, userId), eq(addresses.is_default, true)))
+      .limit(1),
+  ]);
+
+  // Hitung jumlah item per order
+  const orderIds = recentOrdersRaw.map((o) => o.id);
+  const itemCounts =
+    orderIds.length > 0
+      ? await db
+          .select({
+            order_id: order_items.order_id,
+            count: count(),
+          })
+          .from(order_items)
+          .where(inArray(order_items.order_id, orderIds))
+          .groupBy(order_items.order_id)
+      : [];
+
+  const countMap = new Map(itemCounts.map((r) => [r.order_id, r.count]));
+
+  return {
+    pendingCount: pendingCount[0]?.count ?? 0,
+    diprosesCount: diprosesCount[0]?.count ?? 0,
+    dikirimCount: dikirimCount[0]?.count ?? 0,
+    selesaiCount: selesaiCount[0]?.count ?? 0,
+    recentOrders: recentOrdersRaw.map((o) => ({
+      ...o,
+      itemCount: countMap.get(o.id) ?? 0,
+    })),
+    defaultAddress:
+      defaultAddr.length > 0
+        ? {
+            id: defaultAddr[0].id,
+            recipient_name: defaultAddr[0].recipient_name,
+            address: defaultAddr[0].address,
+            district_name: null,
+            village_name: null,
+          }
+        : null,
+  };
+}

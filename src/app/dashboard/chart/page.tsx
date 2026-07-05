@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import axios from "axios";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import AppButton from "@/components/AppButton";
 import {
   Card,
@@ -237,10 +238,18 @@ export default function ChartPage() {
     setApplyingVoucher(true);
     setVoucherError(null);
     try {
-      const itemsTotal = sellerGroups.reduce((sum, g) => sum + sellerSubtotal(g), 0);
+      const itemsTotal = sellerGroups.reduce(
+        (sum, g) => sum + sellerSubtotal(g),
+        0,
+      );
+      const totalWeightKg = sellerGroups.reduce(
+        (sum, g) => sum + sellerTotalWeightKg(g),
+        0,
+      );
       const { data } = await axios.post("/api/vouchers/apply", {
         code: voucherCode.trim(),
         subtotal: itemsTotal,
+        total_weight_kg: totalWeightKg,
       });
       if (data.valid) {
         setVoucherDiscount(data.discount_amount);
@@ -494,9 +503,12 @@ export default function ChartPage() {
                   <div key={group.seller.id} className="space-y-3">
                     <div className="flex items-center gap-2">
                       <Store className="size-4 text-cengkeh-brown" />
-                      <span className="text-sm font-semibold text-cengkeh-brown">
+                      <Link
+                        href={`/store/${group.seller.id}`}
+                        className="text-sm font-semibold text-cengkeh-brown hover:underline"
+                      >
                         {group.seller.name}
-                      </span>
+                      </Link>
                     </div>
                     <p className="flex items-start gap-1.5 text-xs text-muted-foreground -mt-2">
                       <MapPin className="size-3 mt-0.5 shrink-0" />
@@ -736,7 +748,8 @@ export default function ChartPage() {
                   {voucherLabel ? (
                     <div className="flex items-center justify-between rounded-md bg-green-50 border border-green-200 p-2 text-xs">
                       <span className="text-green-700 font-medium">
-                        ✅ {voucherLabel} — Diskon {formatRupiah(voucherDiscount)}
+                        ✅ {voucherLabel} — Diskon{" "}
+                        {formatRupiah(voucherDiscount)}
                       </span>
                       <button
                         type="button"
@@ -757,7 +770,9 @@ export default function ChartPage() {
                         placeholder="Masukkan kode voucher"
                         className="h-9 text-xs font-mono"
                         maxLength={20}
-                        onKeyDown={(e) => e.key === "Enter" && handleApplyVoucher()}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleApplyVoucher()
+                        }
                       />
                       <Button
                         size="sm"
