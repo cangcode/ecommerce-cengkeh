@@ -74,7 +74,7 @@ export default function RegisterForm() {
   };
 
   return (
-    <div className="w-150 h-fit font-inter px-6 xl:px-70 mt-10">
+    <div className="w-150 h-fit font-inter px-6 mt-10">
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold text-cengkeh-brown">
