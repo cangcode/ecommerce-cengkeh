@@ -7,7 +7,7 @@ const connectionString = process.env.DATABASE_URL!;
 // Disable prefetch as it is not supported for "Transaction" pool mode
 const client = postgres(connectionString, {
   prepare: false,
-  max: 2,
+  max: 20,
   idle_timeout: 15,
   max_lifetime: 60 * 5,
   connect_timeout: 30,
