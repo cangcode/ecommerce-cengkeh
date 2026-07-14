@@ -9,7 +9,7 @@ import {
   order_items,
   addresses,
 } from "@/db/schema";
-import { eq, desc, count, sql, and, inArray } from "drizzle-orm";
+import { eq, desc, count, sql, and } from "drizzle-orm";
 
 export type DashboardStats = {
   businessName: string;
@@ -61,7 +61,7 @@ const _getDashboardStatsBySellerId = async (
         .where(eq(products.seller_id, sellerId)),
       db
         .select({
-          total: sql<number>`COALESCE(SUM(CASE WHEN ${products.weight_unit} = 'gram' THEN ${products.stock} / 1000 ELSE ${products.stock} END), 0)`,
+          total: sql<number>`COALESCE(SUM(${products.stock}), 0)`,
         })
         .from(products)
         .where(eq(products.seller_id, sellerId)),
@@ -94,7 +94,7 @@ const _getDashboardStatsBySellerId = async (
     ]);
 
   return {
-    businessName: "", // akan diisi oleh caller
+    businessName: "",
     totalProducts: totalProducts[0]?.count ?? 0,
     totalStock: Number(stockResult[0]?.total ?? 0),
     lowStockCount: lowStock[0]?.count ?? 0,
@@ -128,120 +128,71 @@ export const getDashboardStats = async (sellerId: number) =>
     },
   )();
 
-/** Ambil data dashboard pembeli */
+/** Ambil data dashboard pembeli — optimized: 3 queries instead of 7 */
 export async function getBuyerDashboardData(
   userId: string,
 ): Promise<BuyerDashboardData> {
-  const [
-    pendingCount,
-    diprosesCount,
-    dikirimCount,
-    selesaiCount,
-    recentOrdersRaw,
-    defaultAddr,
-  ] = await Promise.all([
-    // Count items by fulfillment_status via orders
-    db
-      .select({ count: count() })
-      .from(order_items)
-      .innerJoin(orders, eq(order_items.order_id, orders.id))
-      .where(
-        and(
-          eq(orders.user_id, userId),
-          eq(order_items.fulfillment_status, "menunggu"),
-        ),
-      ),
-    db
-      .select({ count: count() })
-      .from(order_items)
-      .innerJoin(orders, eq(order_items.order_id, orders.id))
-      .where(
-        and(
-          eq(orders.user_id, userId),
-          eq(order_items.fulfillment_status, "diproses"),
-        ),
-      ),
-    db
-      .select({ count: count() })
-      .from(order_items)
-      .innerJoin(orders, eq(order_items.order_id, orders.id))
-      .where(
-        and(
-          eq(orders.user_id, userId),
-          eq(order_items.fulfillment_status, "dikirim"),
-        ),
-      ),
-    db
-      .select({ count: count() })
-      .from(order_items)
-      .innerJoin(orders, eq(order_items.order_id, orders.id))
-      .where(
-        and(
-          eq(orders.user_id, userId),
-          eq(order_items.fulfillment_status, "selesai"),
-        ),
-      ),
-    // Recent orders (last 5)
-    db
-      .select({
-        id: orders.id,
-        midtrans_order_id: orders.midtrans_order_id,
-        gross_amount: orders.gross_amount,
-        status: orders.status,
-        created_at: orders.created_at,
-      })
-      .from(orders)
-      .where(eq(orders.user_id, userId))
-      .orderBy(desc(orders.created_at))
-      .limit(5),
-    // Default address
-    db
-      .select({
-        id: addresses.id,
-        recipient_name: addresses.recipient_name,
-        address: addresses.address,
-        district_name: sql<string | null>`NULL`,
-        village_name: sql<string | null>`NULL`,
-      })
-      .from(addresses)
-      .where(and(eq(addresses.user_id, userId), eq(addresses.is_default, true)))
-      .limit(1),
-  ]);
+  // 1. Single query: all fulfillment status counts
+  const [statusRow] = await db
+    .select({
+      pending: sql<number>`COUNT(*) FILTER (WHERE ${order_items.fulfillment_status} = 'menunggu')::int`,
+      diproses: sql<number>`COUNT(*) FILTER (WHERE ${order_items.fulfillment_status} = 'diproses')::int`,
+      dikirim: sql<number>`COUNT(*) FILTER (WHERE ${order_items.fulfillment_status} = 'dikirim')::int`,
+      selesai: sql<number>`COUNT(*) FILTER (WHERE ${order_items.fulfillment_status} = 'selesai')::int`,
+    })
+    .from(order_items)
+    .innerJoin(orders, eq(order_items.order_id, orders.id))
+    .where(eq(orders.user_id, userId));
 
-  // Hitung jumlah item per order
-  const orderIds = recentOrdersRaw.map((o) => o.id);
-  const itemCounts =
-    orderIds.length > 0
-      ? await db
-          .select({
-            order_id: order_items.order_id,
-            count: count(),
-          })
-          .from(order_items)
-          .where(inArray(order_items.order_id, orderIds))
-          .groupBy(order_items.order_id)
-      : [];
+  // 2. Recent orders + item counts in one query
+  const recentOrdersRaw = await db
+    .select({
+      id: orders.id,
+      midtrans_order_id: orders.midtrans_order_id,
+      gross_amount: orders.gross_amount,
+      status: orders.status,
+      created_at: orders.created_at,
+      itemCount: sql<number>`COALESCE(COUNT(${order_items.id}), 0)::int`,
+    })
+    .from(orders)
+    .leftJoin(order_items, eq(orders.id, order_items.order_id))
+    .where(eq(orders.user_id, userId))
+    .groupBy(orders.id)
+    .orderBy(desc(orders.created_at))
+    .limit(5);
 
-  const countMap = new Map(itemCounts.map((r) => [r.order_id, r.count]));
+  // 3. Default address
+  const [defaultAddr] = await db
+    .select({
+      id: addresses.id,
+      recipient_name: addresses.recipient_name,
+      address: addresses.address,
+    })
+    .from(addresses)
+    .where(and(eq(addresses.user_id, userId), eq(addresses.is_default, true)))
+    .limit(1);
 
   return {
-    pendingCount: pendingCount[0]?.count ?? 0,
-    diprosesCount: diprosesCount[0]?.count ?? 0,
-    dikirimCount: dikirimCount[0]?.count ?? 0,
-    selesaiCount: selesaiCount[0]?.count ?? 0,
+    pendingCount: statusRow?.pending ?? 0,
+    diprosesCount: statusRow?.diproses ?? 0,
+    dikirimCount: statusRow?.dikirim ?? 0,
+    selesaiCount: statusRow?.selesai ?? 0,
     recentOrders: recentOrdersRaw.map((o) => ({
-      ...o,
-      itemCount: countMap.get(o.id) ?? 0,
+      id: o.id,
+      midtrans_order_id: o.midtrans_order_id,
+      gross_amount: o.gross_amount,
+      status: o.status,
+      created_at: o.created_at,
+      itemCount: o.itemCount,
     })),
-    defaultAddress:
-      defaultAddr.length > 0
-        ? {
-            id: defaultAddr[0].id,
-            recipient_name: defaultAddr[0].recipient_name,
-            address: defaultAddr[0].address,
-            district_name: null,
-            village_name: null,
-          }
-        : null,
+    defaultAddress: defaultAddr
+      ? {
+          id: defaultAddr.id,
+          recipient_name: defaultAddr.recipient_name,
+          address: defaultAddr.address,
+          district_name: null,
+          village_name: null,
+        }
+      : null,
   };
 }

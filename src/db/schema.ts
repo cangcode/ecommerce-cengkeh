@@ -7,6 +7,7 @@ import {
   jsonb,
   text,
   integer,
+  real,
   boolean,
 } from "drizzle-orm/pg-core";
 
@@ -52,7 +53,7 @@ export const addresses = pgTable("addresses", {
 });
 
 // table product
-export const weightUnitEnum = pgEnum("weight_unit", ["gram", "kg"]);
+export const weightUnitEnum = pgEnum("weight_unit", ["kg"]);
 export const products = pgTable("products", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
   seller_id: bigint("seller_id", { mode: "number" })

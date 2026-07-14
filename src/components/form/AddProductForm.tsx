@@ -33,13 +33,6 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group";
 import { formatRupiah, parseRupiahToNumber, slugify } from "@/lib/utils";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
 import { Switch } from "../ui/switch";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
@@ -58,7 +51,6 @@ export const formSchema = z
       .min(20, "Deskripsi minimal 20 karakter")
       .max(150, "Deskripsi maksimal 150 karakter"),
     price: z.number().min(1, "Masukkan harga produk"),
-    weight_unit: z.string().min(1, "Pilih unit berat"),
     is_wholesale: z.boolean(),
     wholesale_price: z.number().optional(),
     wholesale_qty: z.number().optional(),
@@ -77,7 +69,7 @@ export const formSchema = z
 
     if (!data.wholesale_price || data.wholesale_price < 1) {
       ctx.addIssue({
-        code: "custom", // 👈 Ganti langsung dengan string literal "custom"
+        code: "custom",
         path: ["wholesale_price"],
         message: "Masukkan harga grosir",
       });
@@ -85,17 +77,12 @@ export const formSchema = z
 
     if (!data.wholesale_qty || data.wholesale_qty < 1) {
       ctx.addIssue({
-        code: "custom", // 👈 Begitu juga di sini
+        code: "custom",
         path: ["wholesale_qty"],
         message: "Masukkan minimum pembelian",
       });
     }
   });
-
-const weightUnit = [
-  { label: "kg", value: "kg" },
-  { label: "gram", value: "gram" },
-] as const;
 
 export function AddProductForm() {
   const form = useForm<z.infer<typeof formSchema>>({
@@ -104,7 +91,6 @@ export function AddProductForm() {
       title: "",
       description: "",
       price: 0,
-      weight_unit: "kg",
       is_wholesale: false,
       wholesale_qty: 0,
       wholesale_price: 0,
@@ -114,8 +100,6 @@ export function AddProductForm() {
   });
   const { data: session } = useSession();
 
-  // const [previewCount, setPreviewCount] = useState<number>();
-  const weightUnitCurrentValue = form.watch("weight_unit");
   const isWholeSale = form.watch("is_wholesale");
   const [deletingPublicId, setDeletingPublicId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -136,26 +120,20 @@ export function AddProductForm() {
 
     setSubmitError(null);
 
-    const payload = {
-      ...data,
-      seller_id: session?.user.seller_id,
-      slug: `${slugify(data.title)}`,
-    };
-
     try {
       const response = await axios.post("/api/products", {
-        seller_id: payload.seller_id,
-        slug: payload.slug,
-        title: payload.title,
-        description: payload.description,
-        price: payload.price,
-        weight_unit: payload.weight_unit,
-        stock: payload.stock,
-        image_url: payload.image_url,
-        ...(payload.is_wholesale
+        seller_id: session?.user.seller_id,
+        slug: `${slugify(data.title)}`,
+        title: data.title,
+        description: data.description,
+        price: data.price,
+        weight_unit: "kg",
+        stock: data.stock,
+        image_url: data.image_url,
+        ...(data.is_wholesale
           ? {
-              wholesale_price: payload.wholesale_price,
-              wholesale_qty: payload.wholesale_qty,
+              wholesale_price: data.wholesale_price,
+              wholesale_qty: data.wholesale_qty,
             }
           : {}),
       });
@@ -165,12 +143,9 @@ export function AddProductForm() {
     } catch (error) {
       let message = "Gagal membuat produk";
 
-      // Periksa apakah ini benar-benar error dari Axios
       if (axios.isAxiosError(error)) {
-        // Di dalam blok ini, TypeScript tahu 'error' adalah AxiosError
         message = error.response?.data?.message || message;
       } else if (error instanceof Error) {
-        // Ini untuk error umum JavaScript (misal typo kode/runtime error)
         message = error.message;
       }
 
@@ -299,10 +274,8 @@ export function AddProductForm() {
             />
             {/* upload gambar */}
             <CldUploadWidget
-              // key={`upload-widget-${imageCount}`}
               uploadPreset="ecommerce-cengkeh"
               onSuccess={(result) => {
-                console.log("anjay :", result);
                 const imageInfo = result.info as CloudinaryUploadWidgetInfo;
                 const prev = form.getValues("image_url") ?? [];
                 form.setValue(
@@ -408,89 +381,38 @@ export function AddProductForm() {
             )}
 
             {/* harga */}
-            <div className="flex items-start w-full gap-3">
-              <Controller
-                name="price"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="product-price">
-                      Harga Produk
-                    </FieldLabel>
-                    <Input
-                      name={field.name}
-                      ref={field.ref}
-                      value={field.value ? formatRupiah(field.value) : ""}
-                      id="product-price"
-                      type="text"
-                      inputMode="numeric"
-                      aria-invalid={fieldState.invalid}
-                      placeholder="Masukkan harga produk ..."
-                      autoComplete="off"
-                      onBlur={field.onBlur}
-                      onChange={(e) =>
-                        field.onChange(parseRupiahToNumber(e.target.value))
-                      }
+            <Controller
+              name="price"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="product-price">
+                    Harga Produk (per kg)
+                  </FieldLabel>
+                  <Input
+                    name={field.name}
+                    ref={field.ref}
+                    value={field.value ? formatRupiah(field.value) : ""}
+                    id="product-price"
+                    type="text"
+                    inputMode="numeric"
+                    aria-invalid={fieldState.invalid}
+                    placeholder="Masukkan harga produk ..."
+                    autoComplete="off"
+                    onBlur={field.onBlur}
+                    onChange={(e) =>
+                      field.onChange(parseRupiahToNumber(e.target.value))
+                    }
+                  />
+                  {fieldState.invalid && (
+                    <FieldError
+                      className="text-xs"
+                      errors={[fieldState.error]}
                     />
-                    {fieldState.invalid && (
-                      <FieldError
-                        className="text-xs"
-                        errors={[fieldState.error]}
-                      />
-                    )}
-                  </Field>
-                )}
-              />
-              <div className=" flex flex-col items-end justify-end pt-6 text-xs">
-                per
-              </div>
-
-              <Controller
-                name="weight_unit"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field
-                    orientation="vertical"
-                    data-invalid={fieldState.invalid}
-                  >
-                    <FieldContent>
-                      <FieldLabel htmlFor="form-add-product-select-weigth-unit">
-                        Unit berat
-                      </FieldLabel>
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                    </FieldContent>
-                    <Select
-                      name={field.name}
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                      <SelectTrigger
-                        id="form-add-product-select-weigth-unit"
-                        aria-invalid={fieldState.invalid}
-                        className="min-w-30"
-                      >
-                        <SelectValue placeholder="berat" />
-                      </SelectTrigger>
-                      <SelectContent position="item-aligned">
-                        {weightUnit.map((weightUnit) => (
-                          <SelectItem
-                            key={weightUnit.value}
-                            value={weightUnit.value}
-                          >
-                            {weightUnit.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                )}
-              />
-            </div>
+                  )}
+                </Field>
+              )}
+            />
             {/* harga grosir */}
             <Controller
               name="is_wholesale"
@@ -562,22 +484,22 @@ export function AddProductForm() {
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor="wholesale_qty">
-                      Minimum Pembelian ({weightUnitCurrentValue})
+                      Minimum Pembelian (kg)
                     </FieldLabel>
                     <Input
-                      {...field}
                       disabled={!isWholeSale}
                       id="wholesale_qty"
                       type="text"
-                      aria-invalid={fieldState.invalid}
-                      placeholder="Nama Produk"
-                      autoComplete="off"
                       inputMode="numeric"
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value === "" ? 0 : Number(e.target.value),
-                        )
-                      }
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Jumlah minimum grosir"
+                      autoComplete="off"
+                      value={field.value || ""}
+                      onBlur={field.onBlur}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        field.onChange(raw === "" ? 0 : Number(raw));
+                      }}
                     />
                     {fieldState.invalid && (
                       <FieldError
@@ -596,21 +518,21 @@ export function AddProductForm() {
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor="stock">
-                    Jumlah stock produk ({weightUnitCurrentValue})
+                    Jumlah stock produk (kg)
                   </FieldLabel>
                   <Input
-                    {...field}
                     id="stock"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     aria-invalid={fieldState.invalid}
                     placeholder="Jumlah stock produk"
                     autoComplete="off"
-                    inputMode="numeric"
-                    onChange={(e) =>
-                      field.onChange(
-                        e.target.value === "" ? 0 : Number(e.target.value),
-                      )
-                    }
+                    value={field.value || ""}
+                    onBlur={field.onBlur}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      field.onChange(raw === "" ? 0 : Number(raw));
+                    }}
                   />
                   {fieldState.invalid && (
                     <FieldError

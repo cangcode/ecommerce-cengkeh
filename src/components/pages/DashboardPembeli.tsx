@@ -19,6 +19,7 @@ import {
   Package2,
   Search,
   MapPin,
+  ShoppingBag,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -75,11 +76,21 @@ export default function DashboardPembeli({ data }: Props) {
   return (
     <div className="space-y-5 px-4 py-8 md:px-10">
       {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-cengkeh-brown font-bold text-3xl">Dashboard</h1>
-        <p className="text-xs text-cengkeh-brown">
-          Ringkasan aktivitas belanja Anda.
-        </p>
+      <div className="relative overflow-hidden rounded-2xl bg-cengkeh-brown p-6 md:p-8 text-white">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-1/2 w-32 h-32 bg-white/5 rounded-full translate-y-1/2" />
+        <div className="relative space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur-sm px-3 py-1 text-xs font-semibold text-white border border-white/20">
+              <ShoppingBag className="size-3" />
+              Dashboard Pembeli
+            </span>
+          </div>
+          <h1 className="font-bold text-3xl text-white">Dashboard</h1>
+          <p className="text-sm text-white/80">
+            Ringkasan aktivitas belanja Anda.
+          </p>
+        </div>
       </div>
 
       {/* Statistik pesanan */}
@@ -87,7 +98,7 @@ export default function DashboardPembeli({ data }: Props) {
         {statCards.map((card) => (
           <Card
             key={card.label}
-            className="border-cengkeh-brown/10 bg-white/80"
+            className="border-cengkeh-brown/20 bg-white/80"
           >
             <CardContent className="flex items-center gap-3 p-4">
               <div
@@ -99,7 +110,7 @@ export default function DashboardPembeli({ data }: Props) {
                 <p className="text-2xl font-bold text-cengkeh-brown tabular-nums">
                   {card.value}
                 </p>
-                <p className="text-[11px] text-muted-foreground truncate">
+                <p className="text-[11px] text-cengkeh-brown/60 truncate">
                   {card.label}
                 </p>
               </div>
@@ -111,17 +122,17 @@ export default function DashboardPembeli({ data }: Props) {
       {/* Cari produk */}
       <form action="/product" method="GET" className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-cengkeh-brown/50" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-cengkeh-brown/40" />
           <Input
             name="search"
             placeholder="Cari produk atau toko..."
-            className="h-10 rounded-full border-cengkeh-brown/15 bg-white pl-10"
+            className="h-10 rounded-full border-cengkeh-brown/20 bg-white pl-10"
           />
         </div>
         <Button
           type="submit"
           size="sm"
-          className="h-10 rounded-full bg-cengkeh-brown hover:bg-cengkeh-darker-brown text-cengkeh-beige"
+          className="h-10 rounded-full bg-cengkeh-brown hover:bg-cengkeh-darker-brown text-white"
         >
           Cari
         </Button>
@@ -130,7 +141,7 @@ export default function DashboardPembeli({ data }: Props) {
       {/* Grid: Pesanan Terbaru + Alamat Default */}
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Pesanan Terbaru */}
-        <Card className="lg:col-span-2 border-cengkeh-brown/10 bg-white/80">
+        <Card className="lg:col-span-2 border-cengkeh-brown/20 bg-white/80">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <div>
               <CardTitle className="text-base text-cengkeh-brown flex items-center gap-2">
@@ -149,7 +160,7 @@ export default function DashboardPembeli({ data }: Props) {
             {data.recentOrders.length === 0 ? (
               <div className="py-8 text-center">
                 <Package2 className="size-10 text-cengkeh-brown/20 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-cengkeh-brown/60">
                   Belum ada pesanan.
                 </p>
                 <Button
@@ -169,7 +180,7 @@ export default function DashboardPembeli({ data }: Props) {
                   <Link
                     key={order.id}
                     href="/dashboard/order-list"
-                    className="flex items-center justify-between rounded-lg border border-cengkeh-brown/5 p-3 hover:bg-cengkeh-beige/30 transition-colors"
+                    className="flex items-center justify-between rounded-lg border border-cengkeh-brown/10 p-3 hover:bg-cengkeh-brown/5 transition-colors"
                   >
                     <div className="min-w-0 flex items-center gap-3">
                       <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-cengkeh-brown/10">
@@ -179,7 +190,7 @@ export default function DashboardPembeli({ data }: Props) {
                         <p className="text-xs font-mono text-cengkeh-brown truncate">
                           {order.midtrans_order_id}
                         </p>
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="text-[11px] text-cengkeh-brown/50">
                           {order.itemCount} produk •{" "}
                           {new Date(order.created_at).toLocaleDateString(
                             "id-ID",
@@ -206,7 +217,7 @@ export default function DashboardPembeli({ data }: Props) {
         </Card>
 
         {/* Alamat Default */}
-        <Card className="border-cengkeh-brown/10 bg-white/80">
+        <Card className="border-cengkeh-brown/20 bg-white/80">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <div>
               <CardTitle className="text-base text-cengkeh-brown flex items-center gap-2">
@@ -227,20 +238,20 @@ export default function DashboardPembeli({ data }: Props) {
                 <p className="font-semibold text-cengkeh-brown">
                   {data.defaultAddress.recipient_name}
                 </p>
-                <p className="text-muted-foreground leading-relaxed">
+                <p className="text-cengkeh-brown/60 leading-relaxed">
                   {data.defaultAddress.address}
                 </p>
               </div>
             ) : (
               <div className="py-6 text-center">
                 <MapPin className="size-8 text-cengkeh-brown/20 mx-auto mb-2" />
-                <p className="text-xs text-muted-foreground mb-2">
+                <p className="text-xs text-cengkeh-brown/60 mb-2">
                   Belum ada alamat tersimpan.
                 </p>
                 <Button
                   size="sm"
                   asChild
-                  className="bg-cengkeh-brown hover:bg-cengkeh-darker-brown text-cengkeh-beige text-xs h-8"
+                  className="bg-cengkeh-brown hover:bg-cengkeh-darker-brown text-white text-xs h-8"
                 >
                   <Link href="/dashboard/addresses/add">Tambah Alamat</Link>
                 </Button>

@@ -7,8 +7,10 @@ const connectionString = process.env.DATABASE_URL!;
 // Disable prefetch as it is not supported for "Transaction" pool mode
 const client = postgres(connectionString, {
   prepare: false,
-  max: 10,
-  idle_timeout: 20,
-  connect_timeout: 5,
+  max: 2,
+  idle_timeout: 15,
+  max_lifetime: 60 * 5,
+  connect_timeout: 30,
+  ssl: { rejectUnauthorized: false },
 });
 export const db = drizzle(client);

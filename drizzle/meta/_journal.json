@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1783085959197,
-      "tag": "0000_cute_thor",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1783086263697,
-      "tag": "0001_smart_chimera",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1783158648110,
-      "tag": "0002_wild_sharon_carter",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1783162887028,
-      "tag": "0003_thick_mikhail_rasputin",
+      "when": 1784000185265,
+      "tag": "0000_dusty_bug",
       "breakpoints": true
     }
   ]

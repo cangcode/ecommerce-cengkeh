@@ -107,6 +107,8 @@ export default function ChartPage() {
   const snapReady = useRef(false);
   const orderIdRef = useRef<string | null>(null);
 
+  const qtyTimerRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
   // Voucher states
   const [voucherCode, setVoucherCode] = useState("");
   const [voucherDiscount, setVoucherDiscount] = useState(0);
@@ -114,11 +116,10 @@ export default function ChartPage() {
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [applyingVoucher, setApplyingVoucher] = useState(false);
 
-  // Inject Midtrans Snap script — pakai ref untuk reliability di Vercel
+  // Inject Midtrans Snap script
   useEffect(() => {
     if (snapReady.current) return;
     if (document.querySelector('script[src*="snap.js"]')) {
-      // Already injected by another page
       if ((window as any).snap) snapReady.current = true;
       return;
     }
@@ -229,7 +230,6 @@ export default function ChartPage() {
     return sum + sellerSubtotal(g) + cost;
   }, 0);
 
-  // Hitung total setelah voucher
   const finalTotal = Math.max(0, grandTotal - voucherDiscount);
 
   // ---- Voucher Handler ----
@@ -273,6 +273,83 @@ export default function ChartPage() {
     setVoucherError(null);
   }
 
+  // ---- Persist quantity to API ----
+  async function persistQty(itemId: number, quantity: number) {
+    try {
+      await axios.patch(`/api/chart-items/${itemId}`, { quantity });
+    } catch {
+      toast.error("Gagal memperbarui jumlah");
+      fetchAll();
+    }
+  }
+
+  function updateQtyAndDebounce(itemId: number, newQty: number) {
+    setItems((prev) =>
+      prev.map((i) => (i.id === itemId ? { ...i, quantity: newQty } : i)),
+    );
+
+    if (qtyTimerRef.current[itemId]) clearTimeout(qtyTimerRef.current[itemId]);
+    qtyTimerRef.current[itemId] = setTimeout(() => {
+      persistQty(itemId, newQty);
+    }, 800);
+  }
+
+  function handleQtyInput(itemId: number, raw: string, max: number) {
+    // Only allow digits — strip everything else
+    const digits = raw.replace(/\D/g, "");
+
+    if (digits === "") {
+      // User cleared the input — keep local state empty but don't update items yet
+      setItems((prev) =>
+        prev.map((i) => (i.id === itemId ? { ...i, quantity: 0 } : i)),
+      );
+      return;
+    }
+
+    const num = Number(digits);
+
+    if (num < 1) {
+      setItems((prev) =>
+        prev.map((i) => (i.id === itemId ? { ...i, quantity: 1 } : i)),
+      );
+      return;
+    }
+
+    if (num > max) {
+      setItems((prev) =>
+        prev.map((i) => (i.id === itemId ? { ...i, quantity: max } : i)),
+      );
+      return;
+    }
+
+    setItems((prev) =>
+      prev.map((i) => (i.id === itemId ? { ...i, quantity: num } : i)),
+    );
+
+    // Debounce API call
+    if (qtyTimerRef.current[itemId]) clearTimeout(qtyTimerRef.current[itemId]);
+    qtyTimerRef.current[itemId] = setTimeout(() => {
+      persistQty(itemId, num);
+    }, 800);
+  }
+
+  function handleQtyBlur(itemId: number, max: number) {
+    if (qtyTimerRef.current[itemId]) clearTimeout(qtyTimerRef.current[itemId]);
+
+    // Find current item
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
+
+    let qty = item.quantity;
+    if (qty < 1) qty = 1;
+    if (qty > max) qty = max;
+
+    setItems((prev) =>
+      prev.map((i) => (i.id === itemId ? { ...i, quantity: qty } : i)),
+    );
+    persistQty(itemId, qty);
+  }
+
   if (status === "loading" || loading) {
     return (
       <div className="flex min-h-svh items-center justify-center px-4 py-8">
@@ -293,7 +370,6 @@ export default function ChartPage() {
     }
     setPaying(true);
     try {
-      // Build shipping_per_seller map
       const shippingPerSeller: Record<
         number,
         { method: string; cost: number }
@@ -384,19 +460,6 @@ export default function ChartPage() {
       if (axios.isAxiosError(error))
         message = error.response?.data?.message || message;
       toast.error(message);
-    }
-  }
-
-  async function handleQtyChange(itemId: number, newQty: number, max: number) {
-    if (newQty < 1 || newQty > max) return;
-    setItems((prev) =>
-      prev.map((i) => (i.id === itemId ? { ...i, quantity: newQty } : i)),
-    );
-    try {
-      await axios.patch(`/api/chart-items/${itemId}`, { quantity: newQty });
-    } catch {
-      toast.error("Gagal memperbarui jumlah");
-      fetchAll();
     }
   }
 
@@ -539,45 +602,47 @@ export default function ChartPage() {
                                 size="icon-sm"
                                 className="size-7 rounded-md"
                                 disabled={item.quantity <= 1}
-                                onClick={() =>
-                                  handleQtyChange(
-                                    item.id,
-                                    item.quantity - 1,
-                                    item.product_stock,
-                                  )
-                                }
+                                onClick={() => {
+                                  const newQty = item.quantity - 1;
+                                  if (newQty < 1) return;
+                                  updateQtyAndDebounce(item.id, newQty);
+                                }}
                               >
                                 <Minus className="size-3" />
                               </Button>
                               <Input
-                                type="number"
-                                value={item.quantity}
-                                min={1}
-                                max={item.product_stock}
-                                onChange={(e) => {
-                                  const v = Number(e.target.value);
-                                  if (!isNaN(v))
-                                    handleQtyChange(
-                                      item.id,
-                                      v,
-                                      item.product_stock,
-                                    );
-                                }}
-                                className="h-8 w-14 text-center text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                type="text"
+                                inputMode="numeric"
+                                value={
+                                  item.quantity === 0
+                                    ? ""
+                                    : String(item.quantity)
+                                }
+                                onChange={(e) =>
+                                  handleQtyInput(
+                                    item.id,
+                                    e.target.value,
+                                    item.product_stock,
+                                  )
+                                }
+                                onBlur={() =>
+                                  handleQtyBlur(item.id, item.product_stock)
+                                }
+                                className="h-8 w-20 text-center text-xs"
                               />
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="icon-sm"
                                 className="size-7 rounded-md"
-                                disabled={item.quantity >= item.product_stock}
-                                onClick={() =>
-                                  handleQtyChange(
-                                    item.id,
-                                    item.quantity + 1,
-                                    item.product_stock,
-                                  )
+                                disabled={
+                                  item.quantity + 1 > item.product_stock
                                 }
+                                onClick={() => {
+                                  const newQty = item.quantity + 1;
+                                  if (newQty > item.product_stock) return;
+                                  updateQtyAndDebounce(item.id, newQty);
+                                }}
                               >
                                 <Plus className="size-3" />
                               </Button>
@@ -668,7 +733,7 @@ export default function ChartPage() {
                         </div>
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground">
-                            Berat: {sellerTotalWeightKg(group).toFixed(2)} kg
+                            Berat: {sellerTotalWeightKg(group).toFixed(0)} kg
                           </span>
                           <span className="font-semibold text-cengkeh-brown">
                             Ongkir: {formatRupiah(shipCost)}
