@@ -431,6 +431,10 @@ export default function OrderList() {
                             item.fulfillment_status === "menunggu" &&
                             item.cancellation_status === "none";
 
+                          // Syarat bisa konfirmasi barang sampai: paid, status dikirim
+                          const canConfirmDelivery =
+                            isPaid && item.fulfillment_status === "dikirim";
+
                           return (
                             <div
                               key={item.id}
@@ -544,31 +548,54 @@ export default function OrderList() {
                               )}
 
                               {/* Tombol Konfirmasi Barang Kembali (pembeli) */}
-                              {isPaid &&
-                                item.return_status === "approved" && (
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      try {
-                                        await axios.patch(
-                                          `/api/orders/items/${item.id}/return/confirm`,
-                                        );
-                                        toast.success(
-                                          "Barang dikonfirmasi kembali. Dana akan dikembalikan.",
-                                        );
-                                        fetchOrders();
-                                      } catch {
-                                        toast.error(
-                                          "Gagal mengonfirmasi.",
-                                        );
-                                      }
-                                    }}
-                                    className="self-start flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-blue-50 border border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors"
-                                  >
-                                    <Truck className="size-2.5" />
-                                    Konfirmasi Barang Kembali
-                                  </button>
-                                )}
+                              {isPaid && item.return_status === "approved" && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await axios.patch(
+                                        `/api/orders/items/${item.id}/return/confirm`,
+                                      );
+                                      toast.success(
+                                        "Barang dikonfirmasi kembali. Dana akan dikembalikan.",
+                                      );
+                                      fetchOrders();
+                                    } catch {
+                                      toast.error("Gagal mengonfirmasi.");
+                                    }
+                                  }}
+                                  className="self-start flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-blue-50 border border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors"
+                                >
+                                  <Truck className="size-2.5" />
+                                  Konfirmasi Barang Kembali
+                                </button>
+                              )}
+
+                              {/* Tombol Konfirmasi Barang Sampai (pembeli) */}
+                              {canConfirmDelivery && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await axios.patch(
+                                        `/api/orders/items/${item.id}/confirm-delivery`,
+                                      );
+                                      toast.success(
+                                        "Pesanan berhasil dikonfirmasi. Terima kasih!",
+                                      );
+                                      fetchOrders();
+                                    } catch {
+                                      toast.error(
+                                        "Gagal mengonfirmasi pesanan.",
+                                      );
+                                    }
+                                  }}
+                                  className="self-start flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-green-50 border border-green-300 text-green-700 hover:bg-green-100 transition-colors"
+                                >
+                                  <CheckCircle className="size-2.5" />
+                                  Konfirmasi Barang Sampai
+                                </button>
+                              )}
 
                               {/* Tombol Ajukan Pembatalan */}
                               {canCancel && (

@@ -88,7 +88,10 @@ export default async function AdminLayout({
               <SidebarMenu>
                 {sidebarLinks.slice(1).map((link) => (
                   <SidebarMenuItem key={link.href}>
-                    <SidebarMenuButton asChild className="font-semibold">
+                    <SidebarMenuButton
+                      asChild
+                      className="font-semibold text-8xl"
+                    >
                       <SidebarMenuLink href={link.href}>
                         <link.icon className="size-4!" />
                         {link.label}

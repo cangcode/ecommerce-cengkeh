@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/index";
-import { order_items, products } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { order_items } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -35,29 +35,6 @@ export async function PATCH(
     const { fulfillment_status } = updateSchema.parse(body);
     const itemId = Number(item_id);
 
-    // Ambil status saat ini untuk mencegah pengurangan stok ganda
-    const [current] = await db
-      .select({
-        fulfillment_status: order_items.fulfillment_status,
-        product_id: order_items.product_id,
-        quantity: order_items.quantity,
-      })
-      .from(order_items)
-      .where(
-        and(
-          eq(order_items.id, itemId),
-          eq(order_items.seller_id, session.user.seller_id),
-        ),
-      )
-      .limit(1);
-
-    if (!current) {
-      return NextResponse.json(
-        { success: false, message: "Item tidak ditemukan." },
-        { status: 404 },
-      );
-    }
-
     // Update status
     const [updated] = await db
       .update(order_items)
@@ -70,19 +47,11 @@ export async function PATCH(
       )
       .returning();
 
-    // Kurangi stok & tambah sold_count / buyer_count saat transisi ke "selesai"
-    if (
-      fulfillment_status === "selesai" &&
-      current.fulfillment_status !== "selesai"
-    ) {
-      await db
-        .update(products)
-        .set({
-          stock: sql`${products.stock} - ${current.quantity}`,
-          sold_count: sql`${products.sold_count} + ${current.quantity}`,
-          buyer_count: sql`${products.buyer_count} + 1`,
-        })
-        .where(eq(products.id, current.product_id));
+    if (!updated) {
+      return NextResponse.json(
+        { success: false, message: "Item tidak ditemukan." },
+        { status: 404 },
+      );
     }
 
     return NextResponse.json({ success: true, data: updated });

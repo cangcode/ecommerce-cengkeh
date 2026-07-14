@@ -8,11 +8,14 @@ import type { ComponentProps } from "react";
 type Props = ComponentProps<typeof CollapsibleTrigger> & {
   /** Route prefix untuk menandai aktif, misal "/dashboard/products" */
   activePrefix: string;
+  /** Kelas Tailwind yang diterapkan saat route ini aktif (optional) */
+  activeClassName?: string;
 };
 
 export function ActiveCollapsibleTrigger({
   className,
   activePrefix,
+  activeClassName,
   children,
   ...props
 }: Props) {
@@ -22,11 +25,7 @@ export function ActiveCollapsibleTrigger({
   return (
     <CollapsibleTrigger
       {...props}
-      className={cn(
-        className,
-        isActive &&
-          "bg-cengkeh-brown! text-cengkeh-beige! hover:bg-cengkeh-brown! hover:text-cengkeh-beige!",
-      )}
+      className={cn(className, isActive && activeClassName)}
     >
       {children}
     </CollapsibleTrigger>

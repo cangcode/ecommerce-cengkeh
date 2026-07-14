@@ -66,7 +66,7 @@ const Page = async () => {
             <Card className="border-dashed bg-background/80">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <MapPinned className="size-4 text-cengkeh-brown" />
+                  <MapPinned className="size-4 cengkeh-brown" />
                   Belum ada alamat tersimpan
                 </CardTitle>
                 <CardDescription>

@@ -316,6 +316,53 @@ export async function confirmReturnArrived(itemId: number) {
   return updated ?? null;
 }
 
+/** Pembeli konfirmasi barang sudah sampai → set status "selesai" */
+export async function confirmDelivery(itemId: number) {
+  const [item] = await db
+    .select({
+      fulfillment_status: order_items.fulfillment_status,
+      product_id: order_items.product_id,
+      quantity: order_items.quantity,
+    })
+    .from(order_items)
+    .where(
+      and(
+        eq(order_items.id, itemId),
+        eq(order_items.fulfillment_status, "dikirim"),
+      ),
+    )
+    .limit(1);
+
+  if (!item) return null;
+
+  // Update ke selesai
+  const [updated] = await db
+    .update(order_items)
+    .set({ fulfillment_status: "selesai" as const })
+    .where(
+      and(
+        eq(order_items.id, itemId),
+        eq(order_items.fulfillment_status, "dikirim"),
+      ),
+    )
+    .returning();
+
+  if (updated) {
+    const { products } = await import("@/db/schema");
+    // Kurangi stok & tambah sold_count / buyer_count
+    await db
+      .update(products)
+      .set({
+        stock: sql`${products.stock} - ${item.quantity}`,
+        sold_count: sql`${products.sold_count} + ${item.quantity}`,
+        buyer_count: sql`${products.buyer_count} + 1`,
+      })
+      .where(eq(products.id, item.product_id));
+  }
+
+  return updated ?? null;
+}
+
 /** Auto-konfirmasi retur yang sudah disetujui > 3 hari — jalankan saat fetch orders */
 export async function autoConfirmExpiredReturns() {
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
