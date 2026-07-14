@@ -28,6 +28,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const addressId: number = body.address_id;
     const voucherCode: string | undefined = body.voucher_code;
+    const chartItemIds: number[] | undefined = body.chart_item_ids;
     const shippingPerSellerRaw = (body.shipping_per_seller ?? {}) as Record<
       string,
       { method: string; cost: number }
@@ -53,7 +54,14 @@ export async function POST(req: Request) {
     }
 
     // 1. Ambil item keranjang dari DB (akurat)
-    const chartItems = await getChartItems(session.user.id);
+    let chartItems = await getChartItems(session.user.id);
+
+    // Filter by selected chart_item_ids if provided
+    if (chartItemIds && chartItemIds.length > 0) {
+      const idSet = new Set(chartItemIds);
+      chartItems = chartItems.filter((item) => idSet.has(item.id));
+    }
+
     if (!chartItems.length) {
       return NextResponse.json(
         { success: false, message: "Keranjang kosong." },

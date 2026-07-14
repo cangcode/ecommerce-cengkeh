@@ -1,7 +1,7 @@
 "use client";
 
 import { z } from "zod";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -54,7 +54,14 @@ export default function LoginForm() {
 
     if (result?.ok) {
       router.refresh();
-      router.push(result.url ?? "/dashboard");
+
+      // Cek role user untuk menentukan redirect
+      const session = await getSession();
+      if (session?.user?.role === "admin") {
+        router.push("/admin");
+      } else {
+        router.push(result.url ?? "/dashboard");
+      }
     }
   };
 

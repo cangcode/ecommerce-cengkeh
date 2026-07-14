@@ -52,15 +52,10 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --cengkeh-brown: #412d15;
-    --cengkeh-darker-brown: #1f150c;
-    --cengkeh-beige: #e1dcc9;
-  }
-}
-
 :root {
+  --cengkeh-brown: #412d15;
+  --cengkeh-darker-brown: #1f150c;
+  --cengkeh-beige: #e1dcc9;
   --font-inter: "Inter", sans-serif;
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);

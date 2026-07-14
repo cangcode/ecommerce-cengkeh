@@ -54,17 +54,31 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function AddressForm() {
+type AddressFormProps = {
+  initialData?: {
+    id?: number;
+    recipient_name: string;
+    phone: string;
+    district_id: string;
+    village_id: string;
+    address: string;
+    is_default: boolean;
+  };
+  isEdit?: boolean;
+};
+
+export function AddressForm({ initialData, isEdit }: AddressFormProps = {}) {
   const router = useRouter();
+  const addressId = initialData?.id;
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      recipient_name: "",
-      phone: "",
-      district_id: "",
-      village_id: "",
-      address: "",
-      is_default: false,
+      recipient_name: initialData?.recipient_name ?? "",
+      phone: initialData?.phone ?? "",
+      district_id: initialData?.district_id ?? "",
+      village_id: initialData?.village_id ?? "",
+      address: initialData?.address ?? "",
+      is_default: initialData?.is_default ?? false,
     },
   });
 
@@ -100,13 +114,25 @@ export function AddressForm() {
           (v: { id: string; name: string }) => v.id === data.village_id,
         )?.name ?? "";
 
-      const response = await axios.post("/api/addresses", {
+      const payload = {
         ...data,
         district_name: districtName,
         village_name: villageName,
-      });
+      };
 
-      toast.success(response.data?.message || "Alamat berhasil ditambahkan!");
+      let response;
+      if (isEdit && addressId) {
+        response = await axios.patch(`/api/addresses/${addressId}`, payload);
+      } else {
+        response = await axios.post("/api/addresses", payload);
+      }
+
+      toast.success(
+        response.data?.message ||
+          (isEdit
+            ? "Alamat berhasil diperbarui!"
+            : "Alamat berhasil ditambahkan!"),
+      );
       form.reset();
       router.push("/dashboard/addresses");
     } catch (error) {
@@ -124,10 +150,12 @@ export function AddressForm() {
     <Card className="w-full pt-0 ring-0">
       <CardHeader className="mb-5">
         <CardTitle className="text-3xl font-bold text-cengkeh-brown">
-          Tambah Alamat
+          {isEdit ? "Edit Alamat" : "Tambah Alamat"}
         </CardTitle>
         <CardDescription className="text-cengkeh-brown">
-          Daftar alamat anda akan tersiman di sini.
+          {isEdit
+            ? "Perbarui detail alamat pengiriman."
+            : "Daftar alamat anda akan tersiman di sini."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -299,11 +327,15 @@ export function AddressForm() {
       </CardContent>
       <CardFooter>
         <Field orientation="horizontal">
-          <Button type="button" variant="outline" onClick={() => form.reset()}>
-            Reset
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push("/dashboard/addresses")}
+          >
+            Batal
           </Button>
           <Button type="submit" form="form-address-add">
-            Simpan Alamat
+            {isEdit ? "Perbarui Alamat" : "Simpan Alamat"}
           </Button>
         </Field>
       </CardFooter>

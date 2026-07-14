@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { deleteAddress } from "@/db/data/addresses/addresses.actions";
+import {
+  deleteAddress,
+  updateAddress,
+} from "@/db/data/addresses/addresses.actions";
 
 export const runtime = "nodejs";
 
@@ -20,6 +23,29 @@ export async function DELETE(
     console.error("Delete Address API Error:", error);
     return NextResponse.json(
       { success: false, message: "Gagal menghapus alamat." },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const body = await req.json();
+    const result = await updateAddress(Number(id), body);
+
+    if (!result.success) {
+      return NextResponse.json(result, { status: 400 });
+    }
+
+    return NextResponse.json(result, { status: 200 });
+  } catch (error) {
+    console.error("Update Address API Error:", error);
+    return NextResponse.json(
+      { success: false, message: "Gagal memperbarui alamat." },
       { status: 500 },
     );
   }

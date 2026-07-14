@@ -65,7 +65,7 @@ export default function ProductList() {
             Cari Produk
           </p>
           <p className="text-xs text-cengkeh-brown/70">
-            Ketik nama produk, hasil akan terfilter otomatis.
+            Ketik nama produk atau nama toko, hasil akan terfilter otomatis.
           </p>
         </div>
 
@@ -77,7 +77,7 @@ export default function ProductList() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Cari produk..."
+            placeholder="Cari produk atau toko..."
             className="h-10 rounded-full border-cengkeh-brown/15 bg-white pl-10"
           />
         </div>
@@ -87,42 +87,41 @@ export default function ProductList() {
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
         {data.map((product) => (
           <Card
-            className="relative mx-auto w-full max-w-sm py-0 overflow-hidden"
+            className="relative mx-auto w-full max-w-sm py-0 overflow-hidden group/product-card"
             key={product.id}
           >
-            <img
-              src={product.image_url[0]?.secure_url}
-              alt={product.title}
-              className="relative z-20 aspect-video w-full object-cover"
-            />
-            <CardHeader className="p-3 md:px-3 space-y-1.5">
-              {product.business_name && (
-                <Link
-                  href={`/store/${product.seller_id}`}
-                  className="text-[10px] sm:text-[11px] text-cengkeh-brown font-medium truncate flex items-center hover:underline"
-                >
-                  <Store className="size-3.5 shrink-0" /> &nbsp;
-                  {product.business_name}
-                </Link>
-              )}
-              <CardTitle className="text-sm sm:text-base leading-tight line-clamp-1 text-cengkeh-brown">
-                {product.title}
-              </CardTitle>
-              <CardDescription className="text-[10px] sm:text-xs line-clamp-2">
-                {product.description}
-              </CardDescription>
-              <div className="flex gap-1.5 pt-1.5 flex-wrap">
-                <Badge className="text-[10px] sm:text-xs px-1.5 py-0">
-                  {formatRupiah(product.price)}
-                </Badge>
-                <span className="text-[10px] sm:text-xs text-cengkeh-brown/60 self-center">
-                  /
-                </span>
-                <Badge className="text-[10px] sm:text-xs px-1.5 py-0">
-                  {product.weight_unit}
-                </Badge>
-              </div>
-            </CardHeader>
+            <Link href={`/product/${product.slug}`} className="block">
+              <img
+                src={product.image_url[0]?.secure_url}
+                alt={product.title}
+                className="relative z-20 aspect-video w-full object-cover group-hover/product-card:opacity-90 transition-opacity"
+              />
+              <CardHeader className="p-3 md:px-3 space-y-1.5">
+                {product.business_name && (
+                  <span className="text-[10px] sm:text-[11px] text-cengkeh-brown font-medium truncate flex items-center">
+                    <Store className="size-3.5 shrink-0" /> &nbsp;
+                    {product.business_name}
+                  </span>
+                )}
+                <CardTitle className="text-sm sm:text-base leading-tight line-clamp-1 text-cengkeh-brown group-hover/product-card:underline">
+                  {product.title}
+                </CardTitle>
+                <CardDescription className="text-[10px] sm:text-xs line-clamp-2">
+                  {product.description}
+                </CardDescription>
+                <div className="flex gap-1.5 pt-1.5 flex-wrap">
+                  <Badge className="text-[10px] sm:text-xs px-1.5 py-0">
+                    {formatRupiah(product.price)}
+                  </Badge>
+                  <span className="text-[10px] sm:text-xs text-cengkeh-brown/60 self-center">
+                    /
+                  </span>
+                  <Badge className="text-[10px] sm:text-xs px-1.5 py-0">
+                    {product.weight_unit}
+                  </Badge>
+                </div>
+              </CardHeader>
+            </Link>
             <CardFooter className="flex xs:flex-row justify-between items-start xs:items-center gap-2 p-3 sm:p-6 pt-0 sm:pt-0">
               <div className="text-[11px] sm:text-sm text-cengkeh-darker-brown">
                 stok:{" "}
@@ -131,19 +130,28 @@ export default function ProductList() {
                   {product.weight_unit}
                 </span>
               </div>
-              {session?.user?.role === "penjual" ? (
-                <Button
-                  size="icon-sm"
-                  className="size-7 sm:size-8"
-                  onClick={() => setSellerInfoOpen(true)}
-                >
-                  <ShoppingBasket className="size-3.5 sm:size-4" />
-                </Button>
+              {session?.user?.role === "penjual" ||
+              session?.user?.role === "admin" ? (
+                session?.user?.role === "penjual" ? (
+                  <Button
+                    size="icon-sm"
+                    className="size-7 sm:size-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setSellerInfoOpen(true);
+                    }}
+                  >
+                    <ShoppingBasket className="size-3.5 sm:size-4" />
+                  </Button>
+                ) : null
               ) : (
                 <Button
                   size="icon-sm"
                   className="size-7 sm:size-8"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                     setSelectedProduct(product);
                     setDialogOpen(true);
                   }}

@@ -4,7 +4,7 @@ import { products, seller_profiles } from "@/db/schema";
 import { db } from "@/index";
 import { createProductSchema } from "./products.schema";
 import z from "zod";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 
 export async function createProduct(data: z.infer<typeof createProductSchema>) {
   const validated = createProductSchema.parse(data);
@@ -97,7 +97,10 @@ export async function getAllProducts({
   const whereCondition = normalizedSearchNoSpace
     ? and(
         eq(products.is_active, true),
-        sql`regexp_replace(lower(${products.title}), '\\s+', '', 'g') LIKE ${`%${normalizedSearchNoSpace}%`}`,
+        or(
+          sql`regexp_replace(lower(${products.title}), '\\s+', '', 'g') LIKE ${`%${normalizedSearchNoSpace}%`}`,
+          sql`regexp_replace(lower(${seller_profiles.business_name}), '\\s+', '', 'g') LIKE ${`%${normalizedSearchNoSpace}%`}`,
+        ),
       )
     : eq(products.is_active, true);
 

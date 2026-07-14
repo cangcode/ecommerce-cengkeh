@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, MapPin, Phone, User, Star } from "lucide-react";
+import { Trash2, MapPin, Phone, User, Star, Pencil } from "lucide-react";
 
 type AddressCardProps = {
   addr: {
@@ -51,6 +51,16 @@ export function AddressCard({ addr }: AddressCardProps) {
 
   return (
     <Card className="group/card relative bg-background">
+      {/* Tombol edit — hanya tampil saat hover */}
+      <button
+        type="button"
+        onClick={() => router.push(`/dashboard/addresses/edit/${addr.id}`)}
+        className="absolute bottom-3 right-13 z-10 flex size-8 items-center justify-center rounded-md bg-cengkeh-brown/10 text-cengkeh-brown opacity-0 transition-opacity cursor-pointer hover:bg-cengkeh-brown/20 group-hover/card:opacity-100"
+        aria-label="Edit alamat"
+      >
+        <Pencil className="size-4" />
+      </button>
+
       {/* Tombol delete — hanya tampil saat hover */}
       <button
         type="button"

@@ -316,6 +316,32 @@ export async function confirmReturnArrived(itemId: number) {
   return updated ?? null;
 }
 
+/** Pakai saat order selesai: kurangi stok, tambah sold_count & buyer_count */
+export async function updateProductStatsOnComplete(itemId: number) {
+  const [item] = await db
+    .select({
+      product_id: order_items.product_id,
+      quantity: order_items.quantity,
+      fulfillment_status: order_items.fulfillment_status,
+    })
+    .from(order_items)
+    .where(eq(order_items.id, itemId))
+    .limit(1);
+
+  // Hanya update jika belum selesai sebelumnya (hindari double-count)
+  if (!item || item.fulfillment_status === "selesai") return;
+
+  const { products } = await import("@/db/schema");
+  await db
+    .update(products)
+    .set({
+      stock: sql`${products.stock} - ${item.quantity}`,
+      sold_count: sql`${products.sold_count} + ${item.quantity}`,
+      buyer_count: sql`${products.buyer_count} + 1`,
+    })
+    .where(eq(products.id, item.product_id));
+}
+
 /** Pembeli konfirmasi barang sudah sampai → set status "selesai" */
 export async function confirmDelivery(itemId: number) {
   const [item] = await db
@@ -348,16 +374,7 @@ export async function confirmDelivery(itemId: number) {
     .returning();
 
   if (updated) {
-    const { products } = await import("@/db/schema");
-    // Kurangi stok & tambah sold_count / buyer_count
-    await db
-      .update(products)
-      .set({
-        stock: sql`${products.stock} - ${item.quantity}`,
-        sold_count: sql`${products.sold_count} + ${item.quantity}`,
-        buyer_count: sql`${products.buyer_count} + 1`,
-      })
-      .where(eq(products.id, item.product_id));
+    await updateProductStatsOnComplete(itemId);
   }
 
   return updated ?? null;
