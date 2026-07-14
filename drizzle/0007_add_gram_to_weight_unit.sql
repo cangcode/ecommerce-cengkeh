@@ -1,0 +1,1 @@
+ALTER TYPE "public"."weight_unit" ADD VALUE 'gram';
