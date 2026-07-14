@@ -248,11 +248,11 @@ export function SellerProfileForm({ profile }: Props) {
                       className="min-h-24 resize-none"
                       aria-invalid={fieldState.invalid}
                     />
-                    <InputGroupAddon align="block-end">
+                    {/* <InputGroupAddon align="block-end">
                       <InputGroupText className="tabular-nums">
-                        {field.value.length}/100 karakter
+                        {field.value.length}
                       </InputGroupText>
-                    </InputGroupAddon>
+                    </InputGroupAddon> */}
                   </InputGroup>
                 </Field>
               )}

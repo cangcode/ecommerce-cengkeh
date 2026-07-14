@@ -34,6 +34,8 @@ import {
   Ticket,
   X,
   Loader2,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { getChartItems } from "@/db/data/charts/charts.actions";
 import { getUserAddresses } from "@/db/data/addresses/addresses.actions";
@@ -116,6 +118,52 @@ export default function ChartPage() {
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [applyingVoucher, setApplyingVoucher] = useState(false);
 
+  // Selection state — pilih produk yang akan di-checkout
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(
+    new Set(),
+  );
+
+  // ---- Selection toggle helpers ----
+  const toggleItemSelection = useCallback((itemId: number) => {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSellerSelection = useCallback(
+    (sellerId: number) => {
+      setSelectedItemIds((prev) => {
+        const sellerItemIds = items
+          .filter((item) => item.seller_id === sellerId)
+          .map((item) => item.id);
+        const allSelected = sellerItemIds.every((id) => prev.has(id));
+        const next = new Set(prev);
+        if (allSelected) {
+          for (const id of sellerItemIds) next.delete(id);
+        } else {
+          for (const id of sellerItemIds) next.add(id);
+        }
+        return next;
+      });
+    },
+    [items],
+  );
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedItemIds((prev) => {
+      if (prev.size === items.length) {
+        return new Set();
+      }
+      return new Set(items.map((item) => item.id));
+    });
+  }, [items]);
+
   // Inject Midtrans Snap script
   useEffect(() => {
     if (snapReady.current) return;
@@ -166,6 +214,13 @@ export default function ChartPage() {
     if (status === "authenticated") fetchAll();
   }, [status, fetchAll]);
 
+  // Auto-select all items on first load
+  useEffect(() => {
+    if (items.length > 0 && selectedItemIds.size === 0) {
+      setSelectedItemIds(new Set(items.map((item) => item.id)));
+    }
+  }, [items]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const sellerGroups = useMemo(() => {
     const map = new Map<
       number,
@@ -204,8 +259,20 @@ export default function ChartPage() {
   const getShippingMethod = (sellerId: number): ShippingMethod =>
     shippingMethods[sellerId] ?? "antarkan";
 
-  const sellerTotalWeightKg = (group: { items: ChartItem[] }) =>
-    group.items.reduce((sum, i) => sum + itemToKg(i), 0);
+  // ---- Filtered helpers (for selected items only) ----
+  const getSelectedItems = useCallback(
+    (groupItems: ChartItem[]) =>
+      groupItems.filter((item) => selectedItemIds.has(item.id)),
+    [selectedItemIds],
+  );
+
+  const selectedSellerTotalWeightKg = useCallback(
+    (group: { seller: { id: number }; items: ChartItem[] }) => {
+      const sel = getSelectedItems(group.items);
+      return sel.reduce((sum, i) => sum + itemToKg(i), 0);
+    },
+    [getSelectedItems],
+  );
 
   const isWholesalePrice = (item: ChartItem) =>
     item.product_wholesale_price != null &&
@@ -213,6 +280,22 @@ export default function ChartPage() {
     item.product_wholesale_price > 0 &&
     item.product_wholesale_qty > 0 &&
     item.quantity >= item.product_wholesale_qty;
+
+  const selectedSellerSubtotal = useCallback(
+    (group: { seller: { id: number }; items: ChartItem[] }) => {
+      const sel = getSelectedItems(group.items);
+      return sel.reduce((sum, i) => {
+        const up = isWholesalePrice(i)
+          ? i.product_wholesale_price!
+          : i.product_price;
+        return sum + up * i.quantity;
+      }, 0);
+    },
+    [getSelectedItems],
+  );
+
+  const sellerTotalWeightKg = (group: { items: ChartItem[] }) =>
+    group.items.reduce((sum, i) => sum + itemToKg(i), 0);
 
   const sellerSubtotal = (group: { items: ChartItem[] }) =>
     group.items.reduce((sum, i) => {
@@ -223,14 +306,15 @@ export default function ChartPage() {
     }, 0);
 
   const grandTotal = sellerGroups.reduce((sum, g) => {
-    const cost = calcShippingCost(
-      sellerTotalWeightKg(g),
-      getShippingMethod(g.seller.id),
-    );
-    return sum + sellerSubtotal(g) + cost;
+    const selWeight = selectedSellerTotalWeightKg(g);
+    if (selWeight <= 0) return sum;
+    const cost = calcShippingCost(selWeight, getShippingMethod(g.seller.id));
+    return sum + selectedSellerSubtotal(g) + cost;
   }, 0);
 
   const finalTotal = Math.max(0, grandTotal - voucherDiscount);
+
+  const selectedCount = selectedItemIds.size;
 
   // ---- Voucher Handler ----
   async function handleApplyVoucher() {
@@ -239,11 +323,11 @@ export default function ChartPage() {
     setVoucherError(null);
     try {
       const itemsTotal = sellerGroups.reduce(
-        (sum, g) => sum + sellerSubtotal(g),
+        (sum, g) => sum + selectedSellerSubtotal(g),
         0,
       );
       const totalWeightKg = sellerGroups.reduce(
-        (sum, g) => sum + sellerTotalWeightKg(g),
+        (sum, g) => sum + selectedSellerTotalWeightKg(g),
         0,
       );
       const { data } = await axios.post("/api/vouchers/apply", {
@@ -295,11 +379,9 @@ export default function ChartPage() {
   }
 
   function handleQtyInput(itemId: number, raw: string, max: number) {
-    // Only allow digits — strip everything else
     const digits = raw.replace(/\D/g, "");
 
     if (digits === "") {
-      // User cleared the input — keep local state empty but don't update items yet
       setItems((prev) =>
         prev.map((i) => (i.id === itemId ? { ...i, quantity: 0 } : i)),
       );
@@ -326,7 +408,6 @@ export default function ChartPage() {
       prev.map((i) => (i.id === itemId ? { ...i, quantity: num } : i)),
     );
 
-    // Debounce API call
     if (qtyTimerRef.current[itemId]) clearTimeout(qtyTimerRef.current[itemId]);
     qtyTimerRef.current[itemId] = setTimeout(() => {
       persistQty(itemId, num);
@@ -336,7 +417,6 @@ export default function ChartPage() {
   function handleQtyBlur(itemId: number, max: number) {
     if (qtyTimerRef.current[itemId]) clearTimeout(qtyTimerRef.current[itemId]);
 
-    // Find current item
     const item = items.find((i) => i.id === itemId);
     if (!item) return;
 
@@ -368,6 +448,10 @@ export default function ChartPage() {
       toast.error("Pilih alamat tujuan terlebih dahulu.");
       return;
     }
+    if (selectedCount === 0) {
+      toast.error("Pilih minimal 1 produk untuk di-checkout.");
+      return;
+    }
     setPaying(true);
     try {
       const shippingPerSeller: Record<
@@ -375,12 +459,11 @@ export default function ChartPage() {
         { method: string; cost: number }
       > = {};
       for (const g of sellerGroups) {
+        const weight = selectedSellerTotalWeightKg(g);
+        if (weight <= 0) continue;
         shippingPerSeller[g.seller.id] = {
           method: getShippingMethod(g.seller.id),
-          cost: calcShippingCost(
-            sellerTotalWeightKg(g),
-            getShippingMethod(g.seller.id),
-          ),
+          cost: calcShippingCost(weight, getShippingMethod(g.seller.id)),
         };
       }
 
@@ -388,6 +471,7 @@ export default function ChartPage() {
         shipping_per_seller: shippingPerSeller,
         address_id: selectedAddressId,
         voucher_code: voucherLabel ? voucherCode.trim() : undefined,
+        chart_item_ids: Array.from(selectedItemIds),
       });
       const { token, order_id } = res.data;
       orderIdRef.current = order_id;
@@ -455,6 +539,11 @@ export default function ChartPage() {
       const res = await axios.delete(`/api/chart-items/${itemId}`);
       toast.success(res.data?.message || "Item dihapus!");
       setItems((prev) => prev.filter((i) => i.id !== itemId));
+      setSelectedItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
     } catch (error) {
       let message = "Gagal menghapus item";
       if (axios.isAxiosError(error))
@@ -479,7 +568,7 @@ export default function ChartPage() {
         </div>
         <Badge variant="outline" className="gap-1.5 px-3 py-1.5">
           <ShoppingCart className="size-3.5" />
-          {items.length} item
+          {selectedCount}/{items.length} dipilih
         </Badge>
       </div>
 
@@ -501,6 +590,31 @@ export default function ChartPage() {
         </Card>
       ) : (
         <>
+          {/* Select All Bar */}
+          <Card className="p-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="flex items-center gap-2 text-sm text-cengkeh-brown hover:text-cengkeh-brown/70 transition-colors"
+              >
+                {selectedCount === items.length ? (
+                  <CheckSquare className="size-5" />
+                ) : (
+                  <Square className="size-5" />
+                )}
+                <span className="font-medium">
+                  {selectedCount === items.length
+                    ? "Batalkan Semua"
+                    : "Pilih Semua"}
+                </span>
+              </button>
+              <span className="text-xs text-muted-foreground">
+                {selectedCount} dari {items.length} produk dipilih
+              </span>
+            </div>
+          </Card>
+
           {/* Alamat tujuan */}
           <Card className="p-4">
             <CardHeader className="p-0 pb-3">
@@ -558,13 +672,32 @@ export default function ChartPage() {
           <div className="grid gap-3 lg:grid-cols-3">
             <div className="space-y-6 lg:col-span-2">
               {sellerGroups.map((group) => {
-                const shipCost = calcShippingCost(
-                  sellerTotalWeightKg(group),
-                  getShippingMethod(group.seller.id),
+                const allSellerItemIds = group.items.map((i) => i.id);
+                const allSellerSelected = allSellerItemIds.every((id) =>
+                  selectedItemIds.has(id),
                 );
+                const selWeight = selectedSellerTotalWeightKg(group);
+                const shipCost =
+                  selWeight > 0
+                    ? calcShippingCost(
+                        selWeight,
+                        getShippingMethod(group.seller.id),
+                      )
+                    : 0;
                 return (
                   <div key={group.seller.id} className="space-y-3">
                     <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleSellerSelection(group.seller.id)}
+                        className="flex items-center shrink-0"
+                      >
+                        {allSellerSelected ? (
+                          <CheckSquare className="size-4 text-cengkeh-brown" />
+                        ) : (
+                          <Square className="size-4 text-cengkeh-brown/40" />
+                        )}
+                      </button>
                       <Store className="size-4 text-cengkeh-brown" />
                       <Link
                         href={`/store/${group.seller.id}`}
@@ -573,112 +706,129 @@ export default function ChartPage() {
                         {group.seller.name}
                       </Link>
                     </div>
-                    <p className="flex items-start gap-1.5 text-xs text-muted-foreground -mt-2">
+                    <p className="flex items-start gap-1.5 text-xs text-muted-foreground -mt-2 ml-8">
                       <MapPin className="size-3 mt-0.5 shrink-0" />
                       {group.seller.address}
                     </p>
 
-                    {group.items.map((item) => (
-                      <Card
-                        key={item.id}
-                        className="group/cart-item flex flex-col gap-3 sm:flex-row p-4"
-                      >
-                        {item.product_image_url[0]?.secure_url && (
-                          <img
-                            src={item.product_image_url[0].secure_url}
-                            alt={item.product_title}
-                            className="h-20 w-full rounded-lg object-cover sm:h-24 sm:w-28 shrink-0"
-                          />
-                        )}
-                        <div className="flex flex-1 flex-col justify-between gap-2 min-w-0">
-                          <p className="text-sm font-semibold text-cengkeh-brown line-clamp-1">
-                            {item.product_title}
-                          </p>
-                          <div className="flex items-end justify-between gap-3">
-                            <div className="flex items-center gap-1.5">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon-sm"
-                                className="size-7 rounded-md"
-                                disabled={item.quantity <= 1}
-                                onClick={() => {
-                                  const newQty = item.quantity - 1;
-                                  if (newQty < 1) return;
-                                  updateQtyAndDebounce(item.id, newQty);
-                                }}
-                              >
-                                <Minus className="size-3" />
-                              </Button>
-                              <Input
-                                type="text"
-                                inputMode="numeric"
-                                value={
-                                  item.quantity === 0
-                                    ? ""
-                                    : String(item.quantity)
-                                }
-                                onChange={(e) =>
-                                  handleQtyInput(
-                                    item.id,
-                                    e.target.value,
-                                    item.product_stock,
-                                  )
-                                }
-                                onBlur={() =>
-                                  handleQtyBlur(item.id, item.product_stock)
-                                }
-                                className="h-8 w-20 text-center text-xs"
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon-sm"
-                                className="size-7 rounded-md"
-                                disabled={
-                                  item.quantity + 1 > item.product_stock
-                                }
-                                onClick={() => {
-                                  const newQty = item.quantity + 1;
-                                  if (newQty > item.product_stock) return;
-                                  updateQtyAndDebounce(item.id, newQty);
-                                }}
-                              >
-                                <Plus className="size-3" />
-                              </Button>
-                              <span className="text-[10px] text-muted-foreground">
-                                {item.product_weight_unit}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="text-right">
-                                {isWholesalePrice(item) && (
-                                  <p className="text-[10px] leading-tight text-amber-600">
-                                    Grosir
-                                  </p>
-                                )}
-                                <p className="text-sm font-bold text-cengkeh-brown">
-                                  {formatRupiah(getItemTotal(item))}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  {formatRupiah(getUnitPrice(item))}/
+                    {group.items.map((item) => {
+                      const isSelected = selectedItemIds.has(item.id);
+                      return (
+                        <Card
+                          key={item.id}
+                          className={`group/cart-item flex flex-col gap-3 sm:flex-row p-4 transition-opacity ${!isSelected ? "opacity-50" : ""}`}
+                        >
+                          {/* Checkbox */}
+                          <div className="flex items-center shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => toggleItemSelection(item.id)}
+                              className="flex items-center"
+                            >
+                              {isSelected ? (
+                                <CheckSquare className="size-5 text-cengkeh-brown" />
+                              ) : (
+                                <Square className="size-5 text-cengkeh-brown/30" />
+                              )}
+                            </button>
+                          </div>
+                          {item.product_image_url[0]?.secure_url && (
+                            <img
+                              src={item.product_image_url[0].secure_url}
+                              alt={item.product_title}
+                              className="h-20 w-full rounded-lg object-cover sm:h-24 sm:w-28 shrink-0"
+                            />
+                          )}
+                          <div className="flex flex-1 flex-col justify-between gap-2 min-w-0">
+                            <p className="text-sm font-semibold text-cengkeh-brown line-clamp-1">
+                              {item.product_title}
+                            </p>
+                            <div className="flex items-end justify-between gap-3">
+                              <div className="flex items-center gap-1.5">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon-sm"
+                                  className="size-7 rounded-md"
+                                  disabled={item.quantity <= 1}
+                                  onClick={() => {
+                                    const newQty = item.quantity - 1;
+                                    if (newQty < 1) return;
+                                    updateQtyAndDebounce(item.id, newQty);
+                                  }}
+                                >
+                                  <Minus className="size-3" />
+                                </Button>
+                                <Input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={
+                                    item.quantity === 0
+                                      ? ""
+                                      : String(item.quantity)
+                                  }
+                                  onChange={(e) =>
+                                    handleQtyInput(
+                                      item.id,
+                                      e.target.value,
+                                      item.product_stock,
+                                    )
+                                  }
+                                  onBlur={() =>
+                                    handleQtyBlur(item.id, item.product_stock)
+                                  }
+                                  className="h-8 w-20 text-center text-xs"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon-sm"
+                                  className="size-7 rounded-md"
+                                  disabled={
+                                    item.quantity + 1 > item.product_stock
+                                  }
+                                  onClick={() => {
+                                    const newQty = item.quantity + 1;
+                                    if (newQty > item.product_stock) return;
+                                    updateQtyAndDebounce(item.id, newQty);
+                                  }}
+                                >
+                                  <Plus className="size-3" />
+                                </Button>
+                                <span className="text-[10px] text-muted-foreground">
                                   {item.product_weight_unit}
-                                </p>
+                                </span>
                               </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                className="size-7 text-muted-foreground opacity-0 transition-opacity group-hover/cart-item:opacity-100 hover:text-destructive"
-                                onClick={() => handleDelete(item.id)}
-                              >
-                                <Trash2 className="size-3.5" />
-                              </Button>
+                              <div className="flex items-center gap-2">
+                                <div className="text-right">
+                                  {isWholesalePrice(item) && (
+                                    <p className="text-[10px] leading-tight text-amber-600">
+                                      Grosir
+                                    </p>
+                                  )}
+                                  <p className="text-sm font-bold text-cengkeh-brown">
+                                    {formatRupiah(getItemTotal(item))}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {formatRupiah(getUnitPrice(item))}/
+                                    {item.product_weight_unit}
+                                  </p>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  className="size-7 text-muted-foreground opacity-0 transition-opacity group-hover/cart-item:opacity-100 hover:text-destructive"
+                                  onClick={() => handleDelete(item.id)}
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </Card>
-                    ))}
+                        </Card>
+                      );
+                    })}
 
                     {/* Shipping method */}
                     <Card className="p-4">
@@ -733,7 +883,7 @@ export default function ChartPage() {
                         </div>
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground">
-                            Berat: {sellerTotalWeightKg(group).toFixed(0)} kg
+                            Berat terpilih: {selWeight.toFixed(0)} kg
                           </span>
                           <span className="font-semibold text-cengkeh-brown">
                             Ongkir: {formatRupiah(shipCost)}
@@ -755,9 +905,11 @@ export default function ChartPage() {
               </CardHeader>
               <CardContent className="space-y-3 p-0">
                 {sellerGroups.map((group) => {
-                  const sub = sellerSubtotal(group);
+                  const selSub = selectedSellerSubtotal(group);
+                  const selW = selectedSellerTotalWeightKg(group);
+                  if (selW <= 0) return null;
                   const ship = calcShippingCost(
-                    sellerTotalWeightKg(group),
+                    selW,
                     getShippingMethod(group.seller.id),
                   );
                   return (
@@ -766,8 +918,10 @@ export default function ChartPage() {
                         {group.seller.name}
                       </p>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Subtotal</span>
-                        <span>{formatRupiah(sub)}</span>
+                        <span>
+                          Subtotal ({getSelectedItems(group.items).length} item)
+                        </span>
+                        <span>{formatRupiah(selSub)}</span>
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>Ongkir</span>
@@ -775,7 +929,7 @@ export default function ChartPage() {
                       </div>
                       <div className="flex items-center justify-between text-xs font-semibold text-cengkeh-brown">
                         <span>Total Toko</span>
-                        <span>{formatRupiah(sub + ship)}</span>
+                        <span>{formatRupiah(selSub + ship)}</span>
                       </div>
                     </div>
                   );
@@ -864,7 +1018,9 @@ export default function ChartPage() {
                 {/* Ringkasan biaya */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-cengkeh-brown/70">Subtotal</span>
+                    <span className="text-cengkeh-brown/70">
+                      Subtotal ({selectedCount} item)
+                    </span>
                     <span className="font-medium text-cengkeh-brown">
                       {formatRupiah(grandTotal)}
                     </span>
@@ -888,10 +1044,14 @@ export default function ChartPage() {
                 </div>
                 <AppButton
                   className="mt-2 flex justify-center font-semibold w-full gap-2"
-                  disabled={paying}
+                  disabled={paying || selectedCount === 0}
                   onClick={handleCheckout}
                 >
-                  {paying ? "Memproses..." : "Lanjutkan ke Pembayaran"}
+                  {paying
+                    ? "Memproses..."
+                    : selectedCount === 0
+                      ? "Pilih Produk"
+                      : `Checkout (${selectedCount} item)`}
                   <ChevronRight className="size-4" />
                 </AppButton>
               </CardContent>

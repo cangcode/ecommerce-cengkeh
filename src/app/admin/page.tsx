@@ -10,6 +10,7 @@ import {
   FileText,
   ShoppingBag,
   MessageSquare,
+  ShoppingCart,
 } from "lucide-react";
 
 export default async function AdminDashboardPage() {
@@ -119,6 +120,13 @@ export default async function AdminDashboardPage() {
             >
               <Users className="size-4 text-cengkeh-brown" />
               Kelola Pengguna
+            </a>
+            <a
+              href="/admin/products"
+              className="flex items-center gap-2 p-3 rounded-md border border-cengkeh-brown/10 hover:bg-cengkeh-beige/30 transition-colors"
+            >
+              <ShoppingCart className="size-4 text-cengkeh-brown" />
+              Kelola Produk
             </a>
             <a
               href="/admin/testimonials"

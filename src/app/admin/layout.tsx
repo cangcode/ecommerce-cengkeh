@@ -18,6 +18,7 @@ import {
   Users,
   MessageSquare,
   ArrowLeft,
+  ShoppingCart,
 } from "lucide-react";
 import { SidebarMenuLink } from "@/components/SidebarMenuLink";
 import { SignOutButton } from "./SignOutButton";
@@ -40,6 +41,7 @@ export default async function AdminLayout({
   const sidebarLinks = [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/users", label: "Pengguna", icon: Users },
+    { href: "/admin/products", label: "Produk", icon: ShoppingCart },
     { href: "/admin/testimonials", label: "Testimoni", icon: MessageSquare },
   ];
 
@@ -88,10 +90,7 @@ export default async function AdminLayout({
               <SidebarMenu>
                 {sidebarLinks.slice(1).map((link) => (
                   <SidebarMenuItem key={link.href}>
-                    <SidebarMenuButton
-                      asChild
-                      className="font-semibold text-8xl"
-                    >
+                    <SidebarMenuButton asChild className="font-semibold">
                       <SidebarMenuLink href={link.href}>
                         <link.icon className="size-4!" />
                         {link.label}
