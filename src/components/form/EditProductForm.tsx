@@ -32,16 +32,8 @@ import {
   InputGroupText,
   InputGroupTextarea,
 } from "@/components/ui/input-group";
-import { formatRupiah, parseRupiahToNumber, slugify } from "@/lib/utils";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
+import { formatRupiah, parseRupiahToNumber } from "@/lib/utils";
 import { Switch } from "../ui/switch";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -58,7 +50,6 @@ export const formSchema = z
       .min(20, "Deskripsi minimal 20 karakter")
       .max(150, "Deskripsi maksimal 150 karakter"),
     price: z.number().min(1, "Masukkan harga produk"),
-    weight_unit: z.string().min(1, "Pilih unit berat"),
     is_wholesale: z.boolean(),
     wholesale_price: z.number().optional(),
     wholesale_qty: z.number().optional(),
@@ -71,7 +62,9 @@ export const formSchema = z
     ),
   })
   .superRefine((data, ctx) => {
-    if (!data.is_wholesale) return;
+    if (!data.is_wholesale) {
+      return;
+    }
 
     if (!data.wholesale_price || data.wholesale_price < 1) {
       ctx.addIssue({
@@ -89,11 +82,6 @@ export const formSchema = z
       });
     }
   });
-
-const weightUnit = [
-  { label: "kg", value: "kg" },
-  { label: "gram", value: "gram" },
-] as const;
 
 type ProductData = {
   slug: string;
@@ -114,7 +102,6 @@ export function EditProductForm({ product }: { product: ProductData }) {
       title: product.title,
       description: product.description,
       price: product.price,
-      weight_unit: product.weight_unit ?? "kg",
       is_wholesale: !!(product.wholesale_price && product.wholesale_qty),
       wholesale_price: product.wholesale_price ?? 0,
       wholesale_qty: product.wholesale_qty ?? 0,
@@ -123,8 +110,6 @@ export function EditProductForm({ product }: { product: ProductData }) {
     },
   });
 
-  const { data: session } = useSession();
-  const weightUnitCurrentValue = form.watch("weight_unit");
   const isWholeSale = form.watch("is_wholesale");
   const [deletingPublicId, setDeletingPublicId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -134,12 +119,6 @@ export function EditProductForm({ product }: { product: ProductData }) {
   const remainingUploadSlots = Math.max(0, 3 - imageCount);
 
   async function onSubmit(data: z.infer<typeof formSchema>) {
-    if (!session?.user.id) {
-      setSubmitError("Sesi pengguna tidak ditemukan.");
-      toast.error("Sesi pengguna tidak ditemukan.");
-      return;
-    }
-
     setSubmitError(null);
 
     const payload = {
@@ -147,7 +126,7 @@ export function EditProductForm({ product }: { product: ProductData }) {
       title: data.title,
       description: data.description,
       price: data.price,
-      weight_unit: data.weight_unit,
+      weight_unit: "kg",
       stock: data.stock,
       image_url: data.image_url,
       ...(data.is_wholesale
@@ -226,10 +205,7 @@ export function EditProductForm({ product }: { product: ProductData }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0">
-        <form
-          id="form-edit-product"
-          onSubmit={form.handleSubmit(onSubmit)}
-        >
+        <form id="form-edit-product" onSubmit={form.handleSubmit(onSubmit)}>
           <FieldGroup>
             {/* judul */}
             <Controller
@@ -392,77 +368,38 @@ export function EditProductForm({ product }: { product: ProductData }) {
             )}
 
             {/* harga */}
-            <div className="flex items-start w-full gap-3">
-              <Controller
-                name="price"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="product-price">
-                      Harga Produk
-                    </FieldLabel>
-                    <Input
-                      name={field.name}
-                      ref={field.ref}
-                      value={field.value ? formatRupiah(field.value) : ""}
-                      id="product-price"
-                      type="text"
-                      inputMode="numeric"
-                      aria-invalid={fieldState.invalid}
-                      placeholder="Masukkan harga produk ..."
-                      autoComplete="off"
-                      onBlur={field.onBlur}
-                      onChange={(e) =>
-                        field.onChange(parseRupiahToNumber(e.target.value))
-                      }
+            <Controller
+              name="price"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="product-price">
+                    Harga Produk (per kg)
+                  </FieldLabel>
+                  <Input
+                    name={field.name}
+                    ref={field.ref}
+                    value={field.value ? formatRupiah(field.value) : ""}
+                    id="product-price"
+                    type="text"
+                    inputMode="numeric"
+                    aria-invalid={fieldState.invalid}
+                    placeholder="Masukkan harga produk ..."
+                    autoComplete="off"
+                    onBlur={field.onBlur}
+                    onChange={(e) =>
+                      field.onChange(parseRupiahToNumber(e.target.value))
+                    }
+                  />
+                  {fieldState.invalid && (
+                    <FieldError
+                      className="text-xs"
+                      errors={[fieldState.error]}
                     />
-                    {fieldState.invalid && (
-                      <FieldError className="text-xs" errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-              <div className="flex flex-col items-end justify-end pt-6 text-xs">
-                per
-              </div>
-
-              <Controller
-                name="weight_unit"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field orientation="vertical" data-invalid={fieldState.invalid}>
-                    <FieldContent>
-                      <FieldLabel htmlFor="form-edit-product-select-weight-unit">
-                        Unit berat
-                      </FieldLabel>
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                    </FieldContent>
-                    <Select
-                      name={field.name}
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
-                      <SelectTrigger
-                        id="form-edit-product-select-weight-unit"
-                        aria-invalid={fieldState.invalid}
-                        className="min-w-30"
-                      >
-                        <SelectValue placeholder="berat" />
-                      </SelectTrigger>
-                      <SelectContent position="item-aligned">
-                        {weightUnit.map((wu) => (
-                          <SelectItem key={wu.value} value={wu.value}>
-                            {wu.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                )}
-              />
-            </div>
+                  )}
+                </Field>
+              )}
+            />
             {/* harga grosir */}
             <Controller
               name="is_wholesale"
@@ -519,7 +456,10 @@ export function EditProductForm({ product }: { product: ProductData }) {
                       }
                     />
                     {fieldState.invalid && (
-                      <FieldError className="text-xs" errors={[fieldState.error]} />
+                      <FieldError
+                        className="text-xs"
+                        errors={[fieldState.error]}
+                      />
                     )}
                   </Field>
                 )}
@@ -531,25 +471,28 @@ export function EditProductForm({ product }: { product: ProductData }) {
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor="wholesale_qty">
-                      Minimum Pembelian ({weightUnitCurrentValue})
+                      Minimum Pembelian (kg)
                     </FieldLabel>
                     <Input
-                      {...field}
                       disabled={!isWholeSale}
                       id="wholesale_qty"
                       type="text"
-                      aria-invalid={fieldState.invalid}
-                      placeholder="Nama Produk"
-                      autoComplete="off"
                       inputMode="numeric"
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value === "" ? 0 : Number(e.target.value),
-                        )
-                      }
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Jumlah minimum grosir"
+                      autoComplete="off"
+                      value={field.value || ""}
+                      onBlur={field.onBlur}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        field.onChange(raw === "" ? 0 : Number(raw));
+                      }}
                     />
                     {fieldState.invalid && (
-                      <FieldError className="text-xs" errors={[fieldState.error]} />
+                      <FieldError
+                        className="text-xs"
+                        errors={[fieldState.error]}
+                      />
                     )}
                   </Field>
                 )}
@@ -562,24 +505,27 @@ export function EditProductForm({ product }: { product: ProductData }) {
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor="stock">
-                    Jumlah stok produk ({weightUnitCurrentValue})
+                    Jumlah stock produk (kg)
                   </FieldLabel>
                   <Input
-                    {...field}
                     id="stock"
-                    type="number"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Jumlah stok produk"
-                    autoComplete="off"
+                    type="text"
                     inputMode="numeric"
-                    onChange={(e) =>
-                      field.onChange(
-                        e.target.value === "" ? 0 : Number(e.target.value),
-                      )
-                    }
+                    aria-invalid={fieldState.invalid}
+                    placeholder="Jumlah stock produk"
+                    autoComplete="off"
+                    value={field.value || ""}
+                    onBlur={field.onBlur}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      field.onChange(raw === "" ? 0 : Number(raw));
+                    }}
                   />
                   {fieldState.invalid && (
-                    <FieldError className="text-xs" errors={[fieldState.error]} />
+                    <FieldError
+                      className="text-xs"
+                      errors={[fieldState.error]}
+                    />
                   )}
                 </Field>
               )}
@@ -597,8 +543,9 @@ export function EditProductForm({ product }: { product: ProductData }) {
                 title: product.title,
                 description: product.description,
                 price: product.price,
-                weight_unit: product.weight_unit ?? "kg",
-                is_wholesale: !!(product.wholesale_price && product.wholesale_qty),
+                is_wholesale: !!(
+                  product.wholesale_price && product.wholesale_qty
+                ),
                 wholesale_price: product.wholesale_price ?? 0,
                 wholesale_qty: product.wholesale_qty ?? 0,
                 stock: product.stock,

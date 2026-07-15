@@ -41,7 +41,7 @@ type Props = {
 };
 
 export function AddToCartDialog({ product, open, onOpenChange }: Props) {
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState(0);
   const [isWholesale, setIsWholesale] = useState(false);
 
   const [adding, setAdding] = useState(false);
@@ -49,7 +49,7 @@ export function AddToCartDialog({ product, open, onOpenChange }: Props) {
   // Reset state saat produk berubah
   const handleOpenChange = (next: boolean) => {
     if (next && product) {
-      setQty(1);
+      setQty(0);
       setIsWholesale(false);
       setAdding(false);
     }
@@ -76,7 +76,7 @@ export function AddToCartDialog({ product, open, onOpenChange }: Props) {
   const maxStock = product.stock;
 
   const decrement = () => {
-    const min = isWholesale && hasWholesale ? product.wholesale_qty! : 1;
+    const min = isWholesale && hasWholesale ? product.wholesale_qty! : 0;
     setQty((prev) => Math.max(prev - 1, min));
   };
   const increment = () => {
@@ -153,7 +153,6 @@ export function AddToCartDialog({ product, open, onOpenChange }: Props) {
                 type="button"
                 onClick={() => {
                   setIsWholesale(false);
-                  if (qty < 1) setQty(1);
                 }}
                 className={`flex flex-col items-center justify-center gap-0.5 rounded-lg border px-3 py-2 text-xs transition-colors ${
                   !isWholesale
@@ -200,28 +199,27 @@ export function AddToCartDialog({ product, open, onOpenChange }: Props) {
               variant="outline"
               size="icon-sm"
               onClick={decrement}
-              disabled={
-                displayQty <=
-                (isWholesale && hasWholesale ? product.wholesale_qty! : 1)
-              }
+              disabled={displayQty <= 0}
               className="size-8 rounded-md"
             >
               <Minus className="size-3.5" />
             </Button>
             <Input
-              type="number"
-              min={isWholesale && hasWholesale ? product.wholesale_qty! : 1}
-              max={maxStock}
-              value={displayQty}
+              type="text"
+              inputMode="numeric"
+              value={displayQty === 0 ? "" : String(displayQty)}
               onChange={(e) => {
-                const v = Number(e.target.value);
-                if (!isNaN(v)) {
-                  const min =
-                    isWholesale && hasWholesale ? product.wholesale_qty! : 1;
-                  setQty(Math.min(Math.max(v, min), maxStock));
+                const raw = e.target.value;
+                // Only allow digits — strip everything else
+                const digits = raw.replace(/\D/g, "");
+                if (digits === "") {
+                  setQty(0);
+                  return;
                 }
+                const num = Number(digits);
+                setQty(Math.min(Math.max(num, 0), maxStock));
               }}
-              className="h-9 w-20 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="h-9 w-20 text-center"
             />
             <Button
               type="button"
@@ -262,7 +260,7 @@ export function AddToCartDialog({ product, open, onOpenChange }: Props) {
           <Button
             type="button"
             onClick={handleAddToCart}
-            disabled={adding}
+            disabled={adding || displayQty === 0}
             className="w-full gap-2 bg-cengkeh-brown hover:bg-cengkeh-brown/90"
           >
             <ShoppingBasket className="size-4" />

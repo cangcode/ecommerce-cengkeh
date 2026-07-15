@@ -106,8 +106,6 @@ export default function ChartPage() {
   >({});
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
-  const snapReady = useRef(false);
-  const orderIdRef = useRef<string | null>(null);
 
   const qtyTimerRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
@@ -164,29 +162,7 @@ export default function ChartPage() {
     });
   }, [items]);
 
-  // Inject Midtrans Snap script
-  useEffect(() => {
-    if (snapReady.current) return;
-    if (document.querySelector('script[src*="snap.js"]')) {
-      if ((window as any).snap) snapReady.current = true;
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
-    script.setAttribute(
-      "data-client-key",
-      process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY ?? "",
-    );
-    script.async = true;
-
-    script.onload = () => {
-      snapReady.current = true;
-    };
-    script.onerror = () => console.warn("⚠️ Gagal memuat Midtrans Snap JS");
-
-    document.head.appendChild(script);
-  }, []);
+  // Xendit: no Snap.js needed — redirect to invoice URL
 
   const fetchAll = useCallback(async () => {
     if (!session?.user?.id) return;
@@ -473,51 +449,20 @@ export default function ChartPage() {
         voucher_code: voucherLabel ? voucherCode.trim() : undefined,
         chart_item_ids: Array.from(selectedItemIds),
       });
-      const { token, order_id } = res.data;
-      orderIdRef.current = order_id;
+      const { invoice_url } = res.data;
 
-      if ((window as any).snap) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).snap.pay(token, {
-          onSuccess: async () => {
-            toast.success("Pembayaran berhasil!");
-            await axios.post("/api/payment/update-status", {
-              order_id,
-              status: "paid",
-            });
-            router.push("/dashboard/order-list");
-          },
-          onPending: () => {
-            toast.success(
-              "Pembayaran tertunda. Silakan selesaikan pembayaran.",
-            );
-            router.push("/dashboard/order-list");
-          },
-          onError: () => {
-            toast.error("Pembayaran gagal. Silakan coba lagi.");
-          },
-          onClose: () => {
-            toast.error("Kamu menutup popup pembayaran tanpa menyelesaikan.");
-          },
-        });
+      if (invoice_url) {
+        toast.success("Membuka halaman pembayaran...");
+        window.open(invoice_url, "_blank");
+        router.push("/dashboard/order-list");
       } else {
-        toast.error("Gateway pembayaran belum siap. Coba refresh halaman.");
-        window.open(
-          `https://app.sandbox.midtrans.com/snap/v1/transactions/${token}/redirect`,
-          "_blank",
-        );
+        toast.error("Gagal mendapatkan URL pembayaran.");
       }
     } catch (error) {
       console.error("🔥 PAYMENT ERROR:", error);
       let message = "Gagal memproses pembayaran";
       if (axios.isAxiosError(error)) {
         const data = error.response?.data;
-        console.error(
-          "🔥 RESPONSE:",
-          error.response?.status,
-          typeof data,
-          data,
-        );
         if (typeof data === "string") {
           message = `Server error (${error.response?.status}): ${data.substring(0, 200)}`;
         } else if (data?.message) {
@@ -525,10 +470,8 @@ export default function ChartPage() {
         } else {
           message = `HTTP ${error.response?.status}: ${error.message}`;
         }
-        toast.error(message, { duration: 12000 });
-      } else {
-        toast.error(String(error), { duration: 12000 });
       }
+      toast.error(message);
     } finally {
       setPaying(false);
     }

@@ -52,8 +52,8 @@ export type OrderRow = {
   id: number;
   user_id: string;
   address_id: number;
-  midtrans_order_id: string;
-  snap_token: string | null;
+  xendit_invoice_id: string;
+  invoice_url: string | null;
   status: "pending" | "paid" | "failed" | "expired";
   gross_amount: number;
   shipping_total: number;
@@ -61,7 +61,6 @@ export type OrderRow = {
   paid_at: Date | null;
   created_at: Date;
   updated_at: Date;
-  // joined fields
   recipient_name: string | null;
   address: string | null;
   district_name: string | null;
@@ -70,7 +69,6 @@ export type OrderRow = {
 };
 
 export async function getUserOrders(userId: string): Promise<OrderRow[]> {
-  // Auto-confirm retur yang sudah > 3 hari
   autoConfirmExpiredReturns().catch((e) =>
     console.error("⚠️ [AUTO CONFIRM] getUserOrders:", e),
   );
@@ -80,8 +78,8 @@ export async function getUserOrders(userId: string): Promise<OrderRow[]> {
       id: orders.id,
       user_id: orders.user_id,
       address_id: orders.address_id,
-      midtrans_order_id: orders.midtrans_order_id,
-      snap_token: orders.snap_token,
+      xendit_invoice_id: orders.xendit_invoice_id,
+      invoice_url: orders.invoice_url,
       status: orders.status,
       gross_amount: orders.gross_amount,
       shipping_total: orders.shipping_total,
@@ -101,7 +99,6 @@ export async function getUserOrders(userId: string): Promise<OrderRow[]> {
     .where(eq(orders.user_id, userId))
     .orderBy(desc(orders.created_at));
 
-  // Ambil items untuk setiap order
   const ordersWithItems = await Promise.all(
     result.map(async (order) => {
       const items = await db
@@ -120,33 +117,27 @@ export type SellerOrderItemRow = OrderItemRow;
 
 export type SellerOrderRow = {
   order_id: number;
-  midtrans_order_id: string;
+  xendit_invoice_id: string;
   status: "pending" | "paid" | "failed" | "expired";
   gross_amount: number;
   paid_at: Date | null;
   created_at: Date;
-  // buyer info
   buyer_name: string | null;
   buyer_email: string | null;
-  // shipping
   recipient_name: string | null;
   address: string | null;
   district_name: string | null;
   village_name: string | null;
-  // items milik seller ini saja
   items: SellerOrderItemRow[];
 };
 
-/** Ambil pesanan yang masuk untuk penjual tertentu */
 export async function getSellerOrders(
   sellerId: number,
 ): Promise<SellerOrderRow[]> {
-  // Auto-confirm retur yang sudah > 3 hari
   autoConfirmExpiredReturns().catch((e) =>
     console.error("⚠️ [AUTO CONFIRM] getSellerOrders:", e),
   );
 
-  // 1. Ambil semua order_items milik seller ini
   const sellerItems = await db
     .select()
     .from(order_items)
@@ -155,15 +146,13 @@ export async function getSellerOrders(
 
   if (!sellerItems.length) return [];
 
-  // 2. Kumpulkan unique order_id untuk di-join ke orders
   const orderIds = [...new Set(sellerItems.map((i) => i.order_id))];
 
-  // 3. Ambil orders + shipping info + buyer info
   const orderRows = await db
     .select({
       id: orders.id,
       user_id: orders.user_id,
-      midtrans_order_id: orders.midtrans_order_id,
+      xendit_invoice_id: orders.xendit_invoice_id,
       status: orders.status,
       gross_amount: orders.gross_amount,
       paid_at: orders.paid_at,
@@ -183,10 +172,9 @@ export async function getSellerOrders(
     .where(inArray(orders.id, orderIds))
     .orderBy(desc(orders.created_at));
 
-  // 4. Gabungkan: setiap order hanya tampilkan items milik seller ini
   return orderRows.map((order) => ({
     order_id: order.id,
-    midtrans_order_id: order.midtrans_order_id,
+    xendit_invoice_id: order.xendit_invoice_id,
     status: order.status,
     gross_amount: order.gross_amount,
     paid_at: order.paid_at,
@@ -203,7 +191,6 @@ export async function getSellerOrders(
   }));
 }
 
-/** Pembeli mengajukan retur — hanya untuk item metode "antarkan" yang sudah dikirim */
 export async function requestReturnItem(itemId: number, reason: string) {
   const [updated] = await db
     .update(order_items)
@@ -224,7 +211,6 @@ export async function requestReturnItem(itemId: number, reason: string) {
   return updated ?? null;
 }
 
-/** Penjual menyetujui atau menolak retur */
 export async function respondReturnItem(
   itemId: number,
   sellerId: number,
@@ -248,7 +234,6 @@ export async function respondReturnItem(
   return updated ?? null;
 }
 
-/** Pembeli mengajukan pembatalan — item yang masih menunggu/diproses */
 export async function requestCancelItem(itemId: number, reason: string) {
   const [updated] = await db
     .update(order_items)
@@ -268,7 +253,6 @@ export async function requestCancelItem(itemId: number, reason: string) {
   return updated ?? null;
 }
 
-/** Penjual menyetujui/menolak pembatalan */
 export async function respondCancelItem(
   itemId: number,
   sellerId: number,
@@ -278,7 +262,6 @@ export async function respondCancelItem(
     cancellation_status: action,
     cancel_responded_at: new Date(),
   };
-  // Jika disetujui, langsung batalkan pesanan
   if (action === "approved") {
     setFields.fulfillment_status = "dibatalkan";
   }
@@ -298,7 +281,6 @@ export async function respondCancelItem(
   return updated ?? null;
 }
 
-/** Penjual/Pembeli konfirmasi barang retur sudah sampai kembali → set status refunded */
 export async function confirmReturnArrived(itemId: number) {
   const [updated] = await db
     .update(order_items)
@@ -316,7 +298,6 @@ export async function confirmReturnArrived(itemId: number) {
   return updated ?? null;
 }
 
-/** Pakai saat order selesai: kurangi stok, tambah sold_count & buyer_count */
 export async function updateProductStatsOnComplete(itemId: number) {
   const [item] = await db
     .select({
@@ -328,8 +309,7 @@ export async function updateProductStatsOnComplete(itemId: number) {
     .where(eq(order_items.id, itemId))
     .limit(1);
 
-  // Hanya update jika belum selesai sebelumnya (hindari double-count)
-  if (!item || item.fulfillment_status === "selesai") return;
+  if (!item) return;
 
   const { products } = await import("@/db/schema");
   await db
@@ -342,7 +322,6 @@ export async function updateProductStatsOnComplete(itemId: number) {
     .where(eq(products.id, item.product_id));
 }
 
-/** Pembeli konfirmasi barang sudah sampai → set status "selesai" */
 export async function confirmDelivery(itemId: number) {
   const [item] = await db
     .select({
@@ -361,7 +340,6 @@ export async function confirmDelivery(itemId: number) {
 
   if (!item) return null;
 
-  // Update ke selesai
   const [updated] = await db
     .update(order_items)
     .set({ fulfillment_status: "selesai" as const })
@@ -380,7 +358,6 @@ export async function confirmDelivery(itemId: number) {
   return updated ?? null;
 }
 
-/** Auto-konfirmasi retur yang sudah disetujui > 3 hari — jalankan saat fetch orders */
 export async function autoConfirmExpiredReturns() {
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
 
@@ -398,29 +375,17 @@ export async function autoConfirmExpiredReturns() {
       ),
     );
 
-  // Import midtrans dynamically to avoid issues
   if (expiredItems.length === 0) return;
-
-  const { coreApi } = await import("@/lib/midtrans");
 
   for (const item of expiredItems) {
     try {
-      // Refund
       if (item.subtotal > 0) {
-        const [order] = await db
-          .select({ midtrans_order_id: orders.midtrans_order_id })
-          .from(orders)
-          .where(eq(orders.id, item.order_id))
-          .limit(1);
-
-        if (order) {
-          await coreApi.transaction.refund(order.midtrans_order_id, {
-            amount: item.subtotal,
-            reason: "Auto-konfirmasi: barang retur sudah kembali (3 hari)",
-          });
-        }
+        console.log("💰 [AUTO CONFIRM RETURN] Manual refund needed:", {
+          itemId: item.id,
+          orderId: item.order_id,
+          amount: item.subtotal,
+        });
       }
-      // Set refunded
       await db
         .update(order_items)
         .set({ return_status: "refunded" as const })

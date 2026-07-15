@@ -5,7 +5,7 @@ import axios from "axios";
 // Handle request GET (Mengambil data kecamatan berdasarkan ID kabupaten)
 export async function GET() {
   try {
-    // 1. Ambil API Key dari .env dengan aman
+    // 1. Ambil API Key dari .env dengan amanng
     const apiKey = process.env.BINDERBYTE_API_KEY;
     const idKabupaten = "73.16"; // ID Kabupaten Enrekang
 

@@ -490,34 +490,57 @@ export default function AdminProductsPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Satuan Berat</Label>
-                <Select
-                  value={form.weight_unit}
-                  onValueChange={(v) =>
-                    setForm({ ...form, weight_unit: v as "gram" | "kg" })
-                  }
-                >
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="gram">Gram</SelectItem>
-                    <SelectItem value="kg">Kg</SelectItem>
-                  </SelectContent>
-                </Select>
+            {!editingId && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Satuan Berat</Label>
+                  <Select
+                    value={form.weight_unit}
+                    onValueChange={(v) =>
+                      setForm({ ...form, weight_unit: v as "gram" | "kg" })
+                    }
+                  >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gram">Gram</SelectItem>
+                      <SelectItem value="kg">Kg</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Stok</Label>
+                  <Input
+                    value={form.stock}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const digits = raw.replace(/\D/g, "");
+                      setForm({ ...form, stock: digits });
+                    }}
+                    placeholder="100"
+                    type="text"
+                    inputMode="numeric"
+                  />
+                </div>
               </div>
+            )}
+            {editingId && (
               <div className="space-y-1">
                 <Label className="text-xs">Stok</Label>
                 <Input
                   value={form.stock}
-                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    const digits = raw.replace(/\D/g, "");
+                    setForm({ ...form, stock: digits });
+                  }}
                   placeholder="100"
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                 />
               </div>
-            </div>
+            )}
             <div className="space-y-1">
               <Label className="text-xs">
                 Gambar (JSON array:

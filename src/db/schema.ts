@@ -225,8 +225,8 @@ export const orders = pgTable(
     address_id: bigint("address_id", { mode: "number" })
       .notNull()
       .references(() => addresses.id),
-    midtrans_order_id: text("midtrans_order_id").notNull().unique(),
-    snap_token: text("snap_token"),
+    xendit_invoice_id: text("xendit_invoice_id").notNull().unique(),
+    invoice_url: text("invoice_url"),
     status: orderStatusEnum("status").notNull().default("pending"),
     gross_amount: bigint("gross_amount", { mode: "number" }).notNull(),
     shipping_total: bigint("shipping_total", { mode: "number" })

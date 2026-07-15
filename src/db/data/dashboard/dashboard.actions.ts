@@ -35,7 +35,7 @@ export type BuyerDashboardData = {
   selesaiCount: number;
   recentOrders: {
     id: number;
-    midtrans_order_id: string;
+    xendit_invoice_id: string;
     gross_amount: number;
     status: "pending" | "paid" | "failed" | "expired";
     created_at: Date;
@@ -103,7 +103,6 @@ const _getDashboardStatsBySellerId = async (
   };
 };
 
-/** Ambil seller_id + business_name — TIDAK di-cache */
 export async function getSellerProfileForDashboard(userId: string) {
   const [profile] = await db
     .select({
@@ -117,7 +116,6 @@ export async function getSellerProfileForDashboard(userId: string) {
   return profile ?? null;
 }
 
-/** Ambil statistik dashboard — di-cache dengan tag */
 export const getDashboardStats = async (sellerId: number) =>
   unstable_cache(
     () => _getDashboardStatsBySellerId(sellerId),
@@ -128,11 +126,9 @@ export const getDashboardStats = async (sellerId: number) =>
     },
   )();
 
-/** Ambil data dashboard pembeli — optimized: 3 queries instead of 7 */
 export async function getBuyerDashboardData(
   userId: string,
 ): Promise<BuyerDashboardData> {
-  // 1. Single query: all fulfillment status counts
   const [statusRow] = await db
     .select({
       pending: sql<number>`COUNT(*) FILTER (WHERE ${order_items.fulfillment_status} = 'menunggu')::int`,
@@ -144,11 +140,10 @@ export async function getBuyerDashboardData(
     .innerJoin(orders, eq(order_items.order_id, orders.id))
     .where(eq(orders.user_id, userId));
 
-  // 2. Recent orders + item counts in one query
   const recentOrdersRaw = await db
     .select({
       id: orders.id,
-      midtrans_order_id: orders.midtrans_order_id,
+      xendit_invoice_id: orders.xendit_invoice_id,
       gross_amount: orders.gross_amount,
       status: orders.status,
       created_at: orders.created_at,
@@ -161,7 +156,6 @@ export async function getBuyerDashboardData(
     .orderBy(desc(orders.created_at))
     .limit(5);
 
-  // 3. Default address
   const [defaultAddr] = await db
     .select({
       id: addresses.id,
@@ -179,7 +173,7 @@ export async function getBuyerDashboardData(
     selesaiCount: statusRow?.selesai ?? 0,
     recentOrders: recentOrdersRaw.map((o) => ({
       id: o.id,
-      midtrans_order_id: o.midtrans_order_id,
+      xendit_invoice_id: o.xendit_invoice_id,
       gross_amount: o.gross_amount,
       status: o.status,
       created_at: o.created_at,
