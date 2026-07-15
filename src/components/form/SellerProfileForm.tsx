@@ -220,6 +220,13 @@ export function SellerProfileForm({ profile }: Props) {
                     aria-invalid={fieldState.invalid}
                     placeholder="08xxxxxxxxxx"
                     autoComplete="off"
+                    type="text"
+                    inputMode="numeric"
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const digits = raw.replace(/\D/g, "");
+                      field.onChange(digits);
+                    }}
                   />
                 </Field>
               )}

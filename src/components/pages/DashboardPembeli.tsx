@@ -188,7 +188,7 @@ export default function DashboardPembeli({ data }: Props) {
                       </div>
                       <div>
                         <p className="text-xs font-mono text-cengkeh-brown truncate">
-                          {order.midtrans_order_id}
+                          {order.xendit_invoice_id}
                         </p>
                         <p className="text-[11px] text-cengkeh-brown/50">
                           {order.itemCount} produk •{" "}

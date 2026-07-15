@@ -518,7 +518,7 @@ export default function SellerOrderList() {
                       <p
                         className={`text-sm font-semibold text-cengkeh-brown truncate ${isInactive ? "line-through decoration-cengkeh-brown/40" : ""}`}
                       >
-                        {order.midtrans_order_id}
+                        {order.xendit_invoice_id}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(order.created_at).toLocaleDateString(

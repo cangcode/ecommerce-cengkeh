@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { snap } from "@/lib/midtrans";
+import { createXenditInvoice } from "@/lib/xendit";
 import { auth } from "@/auth";
 import { getChartItems } from "@/db/data/charts/charts.actions";
 import { db } from "@/index";
@@ -34,7 +34,6 @@ export async function POST(req: Request) {
       { method: string; cost: number }
     >;
 
-    // Normalize keys from string to number
     const shippingPerSeller: Record<
       number,
       { method: "ambil_sendiri" | "antarkan"; cost: number }
@@ -53,10 +52,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Ambil item keranjang dari DB (akurat)
     let chartItems = await getChartItems(session.user.id);
 
-    // Filter by selected chart_item_ids if provided
     if (chartItemIds && chartItemIds.length > 0) {
       const idSet = new Set(chartItemIds);
       chartItems = chartItems.filter((item) => idSet.has(item.id));
@@ -69,7 +66,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Hitung subtotal per item & total shipping
     const isWholesale = (item: (typeof chartItems)[number]) =>
       item.product_wholesale_price != null &&
       item.product_wholesale_qty != null &&
@@ -102,7 +98,6 @@ export async function POST(req: Request) {
     const itemsTotal = orderItemRows.reduce((sum, i) => sum + i.subtotal, 0);
     let grossAmount = itemsTotal + totalShipping;
 
-    // 2b. Apply voucher jika ada
     let voucherDiscount = 0;
     let appliedVoucherId: number | null = null;
     if (voucherCode) {
@@ -124,81 +119,70 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. Generate order_id & token Midtrans
-    const orderId = `TRX-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-
-    const midtransItems = orderItemRows.map((item) => ({
-      id: `PROD-${item.product_id}`,
-      price: item.unit_price,
-      quantity: item.quantity,
+    const xenditItems: {
+      name: string;
+      quantity: number;
+      price: number;
+      category?: string;
+    }[] = orderItemRows.map((item) => ({
       name: item.product_title.substring(0, 50),
+      quantity: item.quantity,
+      price: item.unit_price,
+      category: item.product_weight_unit,
     }));
 
-    const parameter = {
-      transaction_details: {
-        order_id: orderId,
-        gross_amount: grossAmount,
-      },
-      item_details: [
-        ...midtransItems,
-        ...(totalShipping > 0
-          ? [
-              {
-                id: "SHIPPING",
-                price: totalShipping,
-                quantity: 1,
-                name: "Ongkos Kirim",
-              },
-            ]
-          : []),
-        ...(voucherDiscount > 0
-          ? [
-              {
-                id: "VOUCHER",
-                price: -voucherDiscount,
-                quantity: 1,
-                name: "Diskon Voucher",
-              },
-            ]
-          : []),
-      ],
-      customer_details: {
-        first_name: session.user.name ?? "Pembeli",
-        email: session.user.email ?? "",
-      },
-      callbacks: {
-        finish: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/order-list`,
-      },
-    };
+    // Add shipping as an item
+    if (totalShipping > 0) {
+      xenditItems.push({
+        name: "Ongkos Kirim",
+        quantity: 1,
+        price: totalShipping,
+      });
+    }
 
-    console.log(
-      "🔵 [PAYMENT] Creating transaction for",
-      session.user.email,
-      "| gross:",
-      grossAmount,
-    );
-    const transaction = await snap.createTransaction(parameter);
-    console.log(
-      "🟢 [PAYMENT] Token created:",
-      transaction.token?.substring(0, 20),
-      "...",
-    );
+    // Add voucher as negative item
+    if (voucherDiscount > 0) {
+      xenditItems.push({
+        name: "Diskon Voucher",
+        quantity: 1,
+        price: -voucherDiscount,
+      });
+    }
 
-    // 4. Simpan order ke DB
+    const invoice = await createXenditInvoice({
+      externalId: `TRX-${Date.now()}`,
+      amount: grossAmount,
+      payerEmail: session.user.email ?? undefined,
+      description: `Pembayaran untuk ${orderItemRows.length} produk`,
+      customer: {
+        givenNames: session.user.name ?? "Pembeli",
+        email: session.user.email ?? undefined,
+      },
+      items: xenditItems,
+      successRedirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/order-list`,
+      failureRedirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/chart`,
+      currency: "IDR",
+    });
+
+    console.log("🟢 [PAYMENT] Full Xendit response:", JSON.stringify(invoice));
+    const invoiceUrl: string =
+      (invoice as any).invoice_url ?? (invoice as any).invoiceUrl ?? "";
+    const invoiceId: string = ((invoice as any).id ?? "") as string;
+    const userId = session.user.id as string;
+
     const [savedOrder] = await db
       .insert(orders)
       .values({
-        user_id: session.user.id,
+        user_id: userId,
         address_id: addressId,
-        midtrans_order_id: orderId,
-        snap_token: transaction.token,
+        xendit_invoice_id: invoiceId,
+        invoice_url: invoiceUrl,
         status: "pending",
         gross_amount: grossAmount,
         shipping_total: totalShipping,
       })
       .returning({ id: orders.id });
 
-    // 5. Simpan order_items ke DB
     const itemValues = orderItemRows.map((item) => ({
       order_id: savedOrder.id,
       product_id: item.product_id,
@@ -214,7 +198,6 @@ export async function POST(req: Request) {
 
     await db.insert(order_items).values(itemValues);
 
-    // 6. Increment voucher used_count
     if (appliedVoucherId) {
       await db
         .update(vouchers)
@@ -227,22 +210,14 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      token: transaction.token,
-      redirect_url: transaction.redirect_url,
-      order_id: orderId,
+      invoice_url: invoiceUrl,
+      invoice_id: invoiceId,
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error("❌ [PAYMENT] Error:", msg);
-    // Log full error object untuk debug di Vercel
-    if (error && typeof error === "object" && "ApiResponse" in error) {
-      console.error(
-        "❌ [PAYMENT] Midtrans response:",
-        JSON.stringify((error as any).ApiResponse),
-      );
-    }
+    console.error("❌ [PAYMENT] Xendit Error:", msg);
     return NextResponse.json(
-      { success: false, message: `Gagal membuat transaksi: ${msg}` },
+      { success: false, message: `Gagal membuat invoice: ${msg}` },
       { status: 500 },
     );
   }

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { respondCancelItem } from "@/db/data/orders/orders.actions";
-import { coreApi } from "@/lib/midtrans";
 import { db } from "@/index";
 import { orders, order_items } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -11,7 +10,7 @@ const respondSchema = z.object({
   action: z.enum(["approved", "rejected"]),
 });
 
-/** PATCH — Penjual menyetujui / menolak pembatalan (jika approved → refund) */
+/** PATCH — Penjual menyetujui / menolak pembatalan (jika approved → refund via Xendit) */
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ item_id: string }> },
@@ -34,7 +33,6 @@ export async function PATCH(
     const body = await req.json();
     const { action } = respondSchema.parse(body);
 
-    // Jika disetujui, ambil item + order untuk refund dulu
     if (action === "approved") {
       const [item] = await db
         .select({
@@ -43,35 +41,15 @@ export async function PATCH(
           subtotal: order_items.subtotal,
         })
         .from(order_items)
-        .where(
-          eq(order_items.id, itemId),
-        )
+        .where(eq(order_items.id, itemId))
         .limit(1);
 
       if (item && item.subtotal > 0) {
-        try {
-          const [order] = await db
-            .select({ midtrans_order_id: orders.midtrans_order_id })
-            .from(orders)
-            .where(eq(orders.id, item.order_id))
-            .limit(1);
-
-          if (order) {
-            await coreApi.transaction.refund(order.midtrans_order_id, {
-              amount: item.subtotal,
-              reason: "Pembatalan disetujui - pengembalian dana",
-            });
-          }
-        } catch (refundErr) {
-          console.error("⚠️ [CANCEL REFUND] Refund API gagal:", refundErr);
-          return NextResponse.json(
-            {
-              success: false,
-              message: "Gagal memproses pengembalian dana. Silakan coba lagi.",
-            },
-            { status: 500 },
-          );
-        }
+        console.log("💰 [CANCEL APPROVED] Manual refund needed:", {
+          itemId: item.id,
+          orderId: item.order_id,
+          amount: item.subtotal,
+        });
       }
     }
 

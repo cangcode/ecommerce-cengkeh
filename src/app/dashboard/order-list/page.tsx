@@ -139,7 +139,6 @@ export default function OrderList() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const snapReady = useRef(false);
   const [returnDialog, setReturnDialog] = useState<{
     itemId: number;
     productTitle: string;
@@ -152,30 +151,8 @@ export default function OrderList() {
   } | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [submittingCancel, setSubmittingCancel] = useState(false);
-
-  // Inject Midtrans Snap script
-  useEffect(() => {
-    if (snapReady.current) return;
-    if (document.querySelector('script[src*="snap.js"]')) {
-      if ((window as any).snap) snapReady.current = true;
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
-    script.setAttribute(
-      "data-client-key",
-      process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY ?? "",
-    );
-    script.async = true;
-
-    script.onload = () => {
-      snapReady.current = true;
-    };
-    script.onerror = () => console.warn("⚠️ Gagal memuat Midtrans Snap JS");
-
-    document.head.appendChild(script);
-  }, []);
+  const ordersRef = useRef(orders);
+  ordersRef.current = orders;
 
   const fetchOrders = useCallback(async () => {
     if (!session?.user?.id) return;
@@ -234,6 +211,42 @@ export default function OrderList() {
   useEffect(() => {
     if (status === "authenticated") fetchOrders();
   }, [status, fetchOrders]);
+
+  // Auto-check pending order statuses via Xendit API every 5 seconds
+  useEffect(() => {
+    const checkStatuses = async () => {
+      const currentOrders = ordersRef.current;
+      const pendingOrders = currentOrders.filter(
+        (o) => o.status === "pending" && o.xendit_invoice_id,
+      );
+      if (!pendingOrders.length) return;
+
+      for (const order of pendingOrders) {
+        try {
+          const { data } = await axios.post("/api/payment/check-status", {
+            invoice_id: order.xendit_invoice_id,
+          });
+          if (data.success && data.our_status === "paid") {
+            setOrders((prev) =>
+              prev.map((o) =>
+                o.id === order.id ? { ...o, status: "paid" as const } : o,
+              ),
+            );
+            toast.success("Pembayaran berhasil dikonfirmasi!");
+          }
+        } catch {
+          // silent — Xendit may be slow, retry next interval
+        }
+      }
+    };
+
+    // Poll every 5 seconds
+    const interval = setInterval(checkStatuses, 5_000);
+    // Also run immediately
+    checkStatuses();
+
+    return () => clearInterval(interval);
+  }, []); // empty deps — uses ref, runs once
 
   if (status === "loading" || loading) {
     return (
@@ -331,7 +344,7 @@ export default function OrderList() {
                       <p
                         className={`text-sm font-semibold text-cengkeh-brown truncate ${isInactive ? "line-through decoration-cengkeh-brown/40" : ""}`}
                       >
-                        {order.midtrans_order_id}
+                        {order.xendit_invoice_id}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(order.created_at).toLocaleDateString(
@@ -644,34 +657,16 @@ export default function OrderList() {
                       </span>
                     </div>
 
-                    {/* Pay button if pending */}
-                    {order.status === "pending" && order.snap_token && (
-                      <button
-                        type="button"
-                        className="w-full rounded-md bg-cengkeh-brown py-2 text-sm font-medium text-cengkeh-beige hover:bg-cengkeh-brown/90 transition-colors"
-                        onClick={() => {
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          if ((window as any).snap) {
-                            (window as any).snap.pay(order.snap_token, {
-                              onSuccess: async () => {
-                                await axios.post("/api/payment/update-status", {
-                                  order_id: order.midtrans_order_id,
-                                  status: "paid",
-                                });
-                                toast.success("Pembayaran berhasil!");
-                                fetchOrders();
-                              },
-                            });
-                          } else {
-                            window.open(
-                              `https://app.sandbox.midtrans.com/snap/v1/transactions/${order.snap_token}/redirect`,
-                              "_blank",
-                            );
-                          }
-                        }}
+                    {/* Pay button if pending — Xendit invoice URL */}
+                    {order.status === "pending" && order.invoice_url && (
+                      <a
+                        href={order.invoice_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full rounded-md bg-cengkeh-brown py-2 text-center text-sm font-medium text-cengkeh-beige hover:bg-cengkeh-brown/90 transition-colors"
                       >
                         Bayar Sekarang
-                      </button>
+                      </a>
                     )}
                   </div>
                 )}
