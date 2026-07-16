@@ -9,7 +9,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { getProducts } from "@/db/data/products/product.actions";
+import {
+  deleteSellerProduct,
+  getProducts,
+} from "@/db/data/products/product.actions";
 import { formatRupiah } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, PenBox, Search, Trash } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -85,11 +88,13 @@ export default function ProductList() {
             className="relative mx-auto w-full max-w-sm py-0 overflow-hidden"
             key={product.id}
           >
-            <div className="absolute inset-0 z-30 aspect-video bg-black/35" />
             <img
-              src={product.image_url[0].secure_url}
+              src={
+                product.image_url?.[0]?.secure_url ||
+                "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23e2e0d8'/%3E%3Cg transform='translate(140,90)'%3E%3Crect x='10' y='40' width='100' height='70' rx='4' fill='%23c4b5a5' stroke='%23a8947a' stroke-width='2'/%3E%3Cpath d='M10 40 L60 5 L110 40' fill='%23b8a088' stroke='%23a8947a' stroke-width='2' stroke-linejoin='round'/%3E%3Crect x='50' y='55' width='20' height='55' rx='2' fill='%23a8947a'/%3E%3Ccircle cx='60' cy='68' r='3' fill='%23d4c5b5'/%3E%3C/g%3E%3Ctext x='200' y='230' text-anchor='middle' font-family='sans-serif' font-size='14' fill='%23a8947a'%3ENo Image Available%3C/text%3E%3C/svg%3E"
+              }
               alt={product.title}
-              className="relative z-20 aspect-video w-full object-cover brightness-60 grayscale dark:brightness-40"
+              className="relative z-20 aspect-video w-full object-cover group-hover/product-card:opacity-90 transition-opacity"
             />
             <CardHeader className="p-3 md:px-3 space-y-1.5">
               <CardTitle className="text-sm sm:text-base leading-tight line-clamp-1">
@@ -124,7 +129,17 @@ export default function ProductList() {
                     <PenBox className="size-3.5 sm:size-4" />
                   </Link>
                 </Button>
-                <Button size="icon-sm" className="size-7 sm:size-8">
+                <Button
+                  size="icon-sm"
+                  className="size-7 sm:size-8"
+                  onClick={async () => {
+                    if (!confirm("Hapus produk ini?")) return;
+                    const sellerId = session!.user.seller_id;
+                    if (sellerId == null) return;
+                    await deleteSellerProduct(product.slug, sellerId);
+                    setData((prev) => prev.filter((p) => p.id !== product.id));
+                  }}
+                >
                   <Trash className="size-3.5 sm:size-4" />
                 </Button>
               </div>

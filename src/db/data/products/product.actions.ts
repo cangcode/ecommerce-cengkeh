@@ -134,6 +134,15 @@ export async function getAllProducts({
 }
 
 /** Ambil produk unggulan untuk homepage – berdasarkan sold_count tertinggi */
+export async function deleteSellerProduct(slug: string, seller_id: number) {
+  const [deleted] = await db
+    .delete(products)
+    .where(and(eq(products.slug, slug), eq(products.seller_id, seller_id)))
+    .returning({ id: products.id });
+
+  return deleted ?? null;
+}
+
 export async function getFeaturedProducts(limit = 8) {
   const result = await db
     .select({
