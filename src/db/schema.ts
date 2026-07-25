@@ -121,6 +121,9 @@ export const seller_profiles = pgTable(
       .notNull()
       .references(() => villages.id),
     description: text("description"),
+    shipping_price_per_kg: bigint("shipping_price_per_kg", {
+      mode: "number",
+    }).default(0),
   },
   (table) => [index("idx_seller_profiles_user_id").on(table.user_id)],
 );

@@ -1,3 +1,5 @@
+"use server";
+
 import { seller_profiles, districts, villages, products } from "@/db/schema";
 import { createSellerProfileSchema } from "./seller-profiles.schema";
 import { db } from "@/index";
