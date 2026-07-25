@@ -38,7 +38,11 @@ import {
   RotateCcw,
   XCircle,
   Ban,
+  FileText,
+  Star,
 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   getUserOrders,
   type OrderRow,
@@ -46,6 +50,10 @@ import {
   type ReturnStatus,
   type CancellationStatus,
 } from "@/db/data/orders/orders.actions";
+import {
+  createSellerReview,
+  getSellerReviews,
+} from "@/db/data/reviews/reviews.actions";
 import axios from "axios";
 import { toast } from "sonner";
 
@@ -151,6 +159,18 @@ export default function OrderList() {
   } | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [submittingCancel, setSubmittingCancel] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [ratingDialog, setRatingDialog] = useState<{
+    itemId: number;
+    productTitle: string;
+    sellerId: number;
+  } | null>(null);
+  const [ratingValue, setRatingValue] = useState(5);
+  const [ratingComment, setRatingComment] = useState("");
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [reviewedOrderItemIds, setReviewedOrderItemIds] = useState<Set<number>>(
+    new Set(),
+  );
   const ordersRef = useRef(orders);
   ordersRef.current = orders;
 
@@ -160,6 +180,30 @@ export default function OrderList() {
     try {
       const data = await getUserOrders(session.user.id);
       setOrders(data);
+
+      // Collect all seller IDs from completed items to batch-check reviews
+      const completedItemIds = data
+        .flatMap((o) => o.items)
+        .filter((i) => i.fulfillment_status === "selesai")
+        .map((i) => i.id);
+
+      if (completedItemIds.length > 0) {
+        const sellerIds = [
+          ...new Set(data.flatMap((o) => o.items).map((i) => i.seller_id)),
+        ];
+        // Check which items already have reviews from this user
+        const reviewed = new Set<number>();
+        for (const sellerId of sellerIds) {
+          const summary = await getSellerReviews(sellerId);
+          const userReviews = summary.reviews.filter(
+            (r) => r.user_id === session.user.id,
+          );
+          for (const r of userReviews) {
+            reviewed.add(r.order_item_id);
+          }
+        }
+        setReviewedOrderItemIds(reviewed);
+      }
     } catch {
       // silent
     } finally {
@@ -205,6 +249,89 @@ export default function OrderList() {
       toast.error(msg);
     } finally {
       setSubmittingCancel(false);
+    }
+  };
+
+  const handleSubmitRating = async () => {
+    if (!session?.user?.id || !ratingDialog) return;
+    setSubmittingRating(true);
+    try {
+      await createSellerReview({
+        seller_id: ratingDialog.sellerId,
+        user_id: session.user.id,
+        rating: ratingValue,
+        comment: ratingComment.trim() || undefined,
+        order_item_id: ratingDialog.itemId,
+      });
+      toast.success("Terima kasih atas penilaiannya!");
+      setRatingDialog(null);
+      setRatingValue(5);
+      setRatingComment("");
+      setReviewedOrderItemIds((prev) => {
+        const next = new Set(prev);
+        next.add(ratingDialog.itemId);
+        return next;
+      });
+      fetchOrders();
+    } catch {
+      toast.error("Gagal mengirim rating");
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
+  const handleExportPDF = () => {
+    const paidOrders = orders.filter((o) => o.status === "paid");
+    if (paidOrders.length === 0) {
+      toast.error("Tidak ada pesanan lunas untuk diexport");
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const doc = new jsPDF({ orientation: "landscape" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      doc.setFontSize(16);
+      doc.text("Riwayat Pesanan Lunas", pageWidth / 2, 15, { align: "center" });
+      doc.setFontSize(10);
+      doc.text(`Pembeli: ${session?.user?.name ?? "-"}`, pageWidth / 2, 22, {
+        align: "center",
+      });
+      doc.text(`Total Pesanan Lunas: ${paidOrders.length}`, pageWidth / 2, 28, {
+        align: "center",
+      });
+
+      const totalPaid = paidOrders.reduce((sum, o) => sum + o.gross_amount, 0);
+      doc.setFontSize(11);
+      doc.text(`Total Pembayaran: ${formatRupiah(totalPaid)}`, 14, 38);
+
+      const tableData = paidOrders.map((order) => [
+        order.xendit_invoice_id,
+        order.recipient_name ?? "-",
+        new Date(order.created_at).toLocaleDateString("id-ID"),
+        order.items.reduce((sum, i) => sum + i.quantity, 0),
+        formatRupiah(order.items.reduce((sum, i) => sum + i.subtotal, 0)),
+        formatRupiah(order.gross_amount),
+      ]);
+
+      autoTable(doc, {
+        head: [
+          ["Invoice", "Penerima", "Tanggal", "Jml Item", "Subtotal", "Total"],
+        ],
+        body: tableData,
+        startY: 42,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [107, 112, 92] },
+      });
+
+      const fileName = `pesanan-lunas-${new Date().toISOString().split("T")[0]}.pdf`;
+      doc.save(fileName);
+      toast.success("PDF berhasil diunduh");
+    } catch {
+      toast.error("Gagal export PDF");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -267,11 +394,29 @@ export default function OrderList() {
   return (
     <div className="space-y-5 px-4 py-8 md:px-10">
       {/* Header */}
-      <div>
-        <h1 className="text-cengkeh-brown font-bold text-3xl">Pesanan Saya</h1>
-        <p className="text-xs text-cengkeh-brown">
-          Pantau status pesanan kamu di sini.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-cengkeh-brown font-bold text-3xl">
+            Pesanan Saya
+          </h1>
+          <p className="text-xs text-cengkeh-brown">
+            Pantau status pesanan kamu di sini.
+          </p>
+        </div>
+        <Button
+          onClick={handleExportPDF}
+          disabled={
+            exporting || orders.filter((o) => o.status === "paid").length === 0
+          }
+          className="bg-cengkeh-brown hover:bg-cengkeh-darker-brown text-cengkeh-beige"
+        >
+          {exporting ? (
+            <Loader2 className="size-4 animate-spin mr-1" />
+          ) : (
+            <FileText className="size-4 mr-1" />
+          )}
+          Export PDF
+        </Button>
       </div>
 
       {orders.length === 0 ? (
@@ -432,19 +577,16 @@ export default function OrderList() {
                               ? CANCEL_LABELS[item.cancellation_status]
                               : null;
 
-                          // Syarat bisa retur: metode antarkan, status dikirim, belum diretur
                           const canReturn =
                             item.shipping_method === "antarkan" &&
                             item.fulfillment_status === "dikirim" &&
                             item.return_status === "none";
 
-                          // Syarat bisa batalkan: paid, status menunggu, belum ada cancel request
                           const canCancel =
                             isPaid &&
                             item.fulfillment_status === "menunggu" &&
                             item.cancellation_status === "none";
 
-                          // Syarat bisa konfirmasi barang sampai: paid, status dikirim
                           const canConfirmDelivery =
                             isPaid && item.fulfillment_status === "dikirim";
 
@@ -490,18 +632,6 @@ export default function OrderList() {
                                         variant="outline"
                                         className={`text-[10px] gap-1 py-0 h-5 ${cancelCfg.className}`}
                                       >
-                                        {item.cancellation_status ===
-                                          "requested" && (
-                                          <Clock className="size-2.5" />
-                                        )}
-                                        {item.cancellation_status ===
-                                          "approved" && (
-                                          <Ban className="size-2.5" />
-                                        )}
-                                        {item.cancellation_status ===
-                                          "rejected" && (
-                                          <XCircle className="size-2.5" />
-                                        )}
                                         {cancelCfg.label}
                                       </Badge>
                                     )}
@@ -510,40 +640,16 @@ export default function OrderList() {
                                         variant="outline"
                                         className={`text-[10px] gap-1 py-0 h-5 ${returnCfg.className}`}
                                       >
-                                        {item.return_status === "requested" && (
-                                          <RotateCcw className="size-2.5" />
-                                        )}
-                                        {item.return_status === "approved" && (
-                                          <CheckCircle className="size-2.5" />
-                                        )}
-                                        {item.return_status === "rejected" && (
-                                          <XCircle className="size-2.5" />
-                                        )}
-                                        {item.return_status === "refunded" && (
-                                          <CreditCard className="size-2.5" />
-                                        )}
                                         {returnCfg.label}
                                       </Badge>
                                     )}
                                   </div>
-                                  {item.return_reason && (
-                                    <p className="text-muted-foreground mt-1 italic">
-                                      Alasan: &ldquo;{item.return_reason}&rdquo;
-                                    </p>
-                                  )}
-                                  {item.cancel_reason && (
-                                    <p className="text-muted-foreground mt-1 italic">
-                                      Alasan batal: &ldquo;{item.cancel_reason}
-                                      &rdquo;
-                                    </p>
-                                  )}
                                 </div>
                                 <span className="font-semibold text-cengkeh-brown shrink-0 ml-3">
                                   {formatRupiah(item.subtotal)}
                                 </span>
                               </div>
 
-                              {/* Tombol Ajukan Retur */}
                               {canReturn && (
                                 <button
                                   type="button"
@@ -560,7 +666,6 @@ export default function OrderList() {
                                 </button>
                               )}
 
-                              {/* Tombol Konfirmasi Barang Kembali (pembeli) */}
                               {isPaid && item.return_status === "approved" && (
                                 <button
                                   type="button"
@@ -584,7 +689,6 @@ export default function OrderList() {
                                 </button>
                               )}
 
-                              {/* Tombol Konfirmasi Barang Sampai (pembeli) */}
                               {canConfirmDelivery && (
                                 <button
                                   type="button"
@@ -610,7 +714,25 @@ export default function OrderList() {
                                 </button>
                               )}
 
-                              {/* Tombol Ajukan Pembatalan */}
+                              {isPaid &&
+                                item.fulfillment_status === "selesai" &&
+                                !reviewedOrderItemIds.has(item.id) && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setRatingDialog({
+                                        itemId: item.id,
+                                        productTitle: item.product_title,
+                                        sellerId: item.seller_id,
+                                      })
+                                    }
+                                    className="self-start flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-yellow-50 border border-yellow-300 text-yellow-700 hover:bg-yellow-100 transition-colors"
+                                  >
+                                    <Star className="size-2.5" />
+                                    Beri Rating
+                                  </button>
+                                )}
+
                               {canCancel && (
                                 <button
                                   type="button"
@@ -629,25 +751,10 @@ export default function OrderList() {
                             </div>
                           );
                         })}
-                        {sg.shipping_cost > 0 && (
-                          <div className="flex items-center justify-between text-xs px-2">
-                            <span className="text-muted-foreground">
-                              Ongkir
-                            </span>
-                            <span>{formatRupiah(sg.shipping_cost)}</span>
-                          </div>
-                        )}
                       </div>
                     ))}
 
                     <Separator />
-                    {isInactive && (
-                      <p className="text-xs text-muted-foreground italic">
-                        {order.status === "expired"
-                          ? "Pesanan ini sudah kadaluarsa karena tidak dibayar tepat waktu."
-                          : "Pembayaran pesanan ini gagal."}
-                      </p>
-                    )}
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-semibold text-cengkeh-brown">
                         Total
@@ -657,7 +764,6 @@ export default function OrderList() {
                       </span>
                     </div>
 
-                    {/* Pay button if pending — Xendit invoice URL */}
                     {order.status === "pending" && order.invoice_url && (
                       <a
                         href={order.invoice_url}
@@ -737,6 +843,84 @@ export default function OrderList() {
                 <Loader2 className="size-3.5 animate-spin" />
               ) : (
                 "Ajukan Retur"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Beri Rating */}
+      <Dialog
+        open={ratingDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRatingDialog(null);
+            setRatingValue(5);
+            setRatingComment("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-cengkeh-brown">
+              Beri Rating
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              {ratingDialog && (
+                <>
+                  Beri rating untuk toko dari produk{" "}
+                  <span className="font-semibold text-cengkeh-brown">
+                    &ldquo;{ratingDialog.productTitle}&rdquo;
+                  </span>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex items-center justify-center gap-1 py-2">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setRatingValue(star)}
+                  className="transition-colors"
+                >
+                  <Star
+                    className={`size-8 ${star <= ratingValue ? "text-amber-500 fill-amber-500" : "text-gray-300"}`}
+                  />
+                </button>
+              ))}
+            </div>
+            <Textarea
+              value={ratingComment}
+              onChange={(e) => setRatingComment(e.target.value)}
+              placeholder="Tulis komentar (opsional)..."
+              className="resize-none text-sm h-20"
+            />
+          </div>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setRatingDialog(null);
+                setRatingValue(5);
+                setRatingComment("");
+              }}
+              className="text-cengkeh-brown"
+            >
+              Batal
+            </Button>
+            <Button
+              size="sm"
+              disabled={submittingRating}
+              className="bg-cengkeh-brown hover:bg-cengkeh-darker-brown text-cengkeh-beige"
+              onClick={handleSubmitRating}
+            >
+              {submittingRating ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                "Kirim Rating"
               )}
             </Button>
           </DialogFooter>

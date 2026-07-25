@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { ProductDetailClient } from "@/components/ProductDetailClient";
 import { ProductImageGallery } from "@/components/ProductImageGallery";
+import { SellerReviews } from "@/components/SellerReviews";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -164,6 +165,11 @@ export default async function ProductDetailPage({ params }: Props) {
 
           {/* Tombol Tambah ke Keranjang (client component) */}
           <ProductDetailClient product={productForCart} />
+
+          <Separator />
+
+          {/* Ulasan Toko */}
+          <SellerReviews sellerId={product.seller_id} />
         </div>
       </div>
     </div>

@@ -86,7 +86,6 @@ export default function ReportsPage() {
       const doc = new jsPDF({ orientation: "landscape" });
       const pageWidth = doc.internal.pageSize.getWidth();
 
-      // Header
       doc.setFontSize(16);
       doc.text("Laporan Penjualan", pageWidth / 2, 15, { align: "center" });
       doc.setFontSize(10);
@@ -99,7 +98,6 @@ export default function ReportsPage() {
           : "Periode: Semua";
       doc.text(periodText, pageWidth / 2, 28, { align: "center" });
 
-      // Summary
       doc.setFontSize(11);
       doc.text(
         `Total Pendapatan: ${formatRupiah(summary.totalPaidRevenue)}`,
@@ -109,14 +107,12 @@ export default function ReportsPage() {
       doc.text(`Total Pesanan (Lunas): ${summary.totalPaidOrders}`, 100, 38);
       doc.text(`Rata-rata: ${formatRupiah(summary.averagePerOrder)}`, 180, 38);
 
-      // Table
       const tableData = items.map((item) => [
         item.xendit_invoice_id,
         item.buyer_name ?? "-",
         new Date(item.created_at).toLocaleDateString("id-ID"),
         item.item_count,
         formatRupiah(item.subtotal),
-        formatRupiah(item.shipping_cost),
         formatRupiah(item.total),
         STATUS_CONFIG[item.status]?.label ?? item.status,
       ]);
@@ -129,7 +125,6 @@ export default function ReportsPage() {
             "Tanggal",
             "Jml Item",
             "Subtotal",
-            "Ongkir",
             "Total",
             "Status",
           ],
@@ -305,9 +300,6 @@ export default function ReportsPage() {
                       Subtotal
                     </th>
                     <th className="p-3 font-medium text-cengkeh-brown/60 text-xs">
-                      Ongkir
-                    </th>
-                    <th className="p-3 font-medium text-cengkeh-brown/60 text-xs">
                       Total
                     </th>
                     <th className="p-3 font-medium text-cengkeh-brown/60 text-xs">
@@ -340,9 +332,6 @@ export default function ReportsPage() {
                         </td>
                         <td className="p-3 text-xs text-cengkeh-brown">
                           {formatRupiah(item.subtotal)}
-                        </td>
-                        <td className="p-3 text-xs text-cengkeh-brown">
-                          {formatRupiah(item.shipping_cost)}
                         </td>
                         <td className="p-3 text-xs font-semibold text-cengkeh-brown">
                           {formatRupiah(item.total)}

@@ -1,1 +1,0 @@
-ALTER TABLE "seller_profiles" ADD COLUMN "shipping_price_per_kg" bigint DEFAULT 0;
