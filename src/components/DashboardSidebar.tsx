@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   ChevronRight,
   ClipboardList,
+  FileText,
   LayoutDashboard,
   MapPinned,
   Package,
@@ -23,6 +24,7 @@ import {
   Ticket,
   User2,
   Sparkles,
+  Truck,
 } from "lucide-react";
 import { auth } from "@/auth";
 import {
@@ -220,6 +222,44 @@ export async function DashboardSidebar() {
                     >
                       <Ticket className="size-4!" />
                       Voucher
+                    </SidebarMenuLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+
+            <SidebarGroup className="px-2">
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    className="font-semibold hover:bg-emerald-700! hover:text-white!"
+                  >
+                    <SidebarMenuLink
+                      href="/dashboard/shipping"
+                      activeClassName="bg-emerald-700! text-white! hover:bg-emerald-700! hover:text-white!"
+                    >
+                      <Truck className="size-4!" />
+                      Atur Ongkir
+                    </SidebarMenuLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+
+            <SidebarGroup className="px-2">
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    className="font-semibold hover:bg-emerald-700! hover:text-white!"
+                  >
+                    <SidebarMenuLink
+                      href="/dashboard/reports"
+                      activeClassName="bg-emerald-700! text-white! hover:bg-emerald-700! hover:text-white!"
+                    >
+                      <FileText className="size-4!" />
+                      Laporan
                     </SidebarMenuLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
