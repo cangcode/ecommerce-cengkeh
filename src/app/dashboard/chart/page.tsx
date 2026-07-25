@@ -73,19 +73,14 @@ type Address = {
 
 type ShippingMethod = "ambil_sendiri" | "antarkan";
 
-const SHIPPING_RATE_PER_KG = 15000;
-const MIN_SHIPPING = 10000;
+const SHIPPING_RATE_PER_KG = 0;
+const MIN_SHIPPING = 0;
 
 function calcShippingCost(
   totalWeightKg: number,
   method: ShippingMethod,
 ): number {
-  if (method === "ambil_sendiri") return 0;
-  if (totalWeightKg <= 0) return 0;
-  return Math.max(
-    Math.ceil(totalWeightKg) * SHIPPING_RATE_PER_KG,
-    MIN_SHIPPING,
-  );
+  return 0;
 }
 
 function itemToKg(item: ChartItem): number {
@@ -815,21 +810,14 @@ export default function ChartPage() {
                           >
                             <span className="font-semibold">Antarkan</span>
                             <span className="text-[10px]">
-                              {formatRupiah(
-                                calcShippingCost(
-                                  sellerTotalWeightKg(group),
-                                  "antarkan",
-                                ),
-                              )}
+                              Biaya pengiriman dibayar oleh pembeli saat barang
+                              tiba
                             </span>
                           </button>
                         </div>
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground">
                             Berat terpilih: {selWeight.toFixed(0)} kg
-                          </span>
-                          <span className="font-semibold text-cengkeh-brown">
-                            Ongkir: {formatRupiah(shipCost)}
                           </span>
                         </div>
                       </CardContent>
@@ -866,13 +854,9 @@ export default function ChartPage() {
                         </span>
                         <span>{formatRupiah(selSub)}</span>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Ongkir</span>
-                        <span>{formatRupiah(ship)}</span>
-                      </div>
                       <div className="flex items-center justify-between text-xs font-semibold text-cengkeh-brown">
                         <span>Total Toko</span>
-                        <span>{formatRupiah(selSub + ship)}</span>
+                        <span>{formatRupiah(selSub)}</span>
                       </div>
                     </div>
                   );

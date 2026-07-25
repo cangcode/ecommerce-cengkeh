@@ -121,9 +121,6 @@ export const seller_profiles = pgTable(
       .notNull()
       .references(() => villages.id),
     description: text("description"),
-    shipping_price_per_kg: bigint("shipping_price_per_kg", {
-      mode: "number",
-    }).default(0),
   },
   (table) => [index("idx_seller_profiles_user_id").on(table.user_id)],
 );
@@ -313,6 +310,33 @@ export const vouchers = pgTable("vouchers", {
     .defaultNow()
     .notNull(),
 });
+
+// ── SELLER REVIEWS ──
+export const seller_reviews = pgTable(
+  "seller_reviews",
+  {
+    id: bigint("id", { mode: "number" })
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
+    seller_id: bigint("seller_id", { mode: "number" })
+      .notNull()
+      .references(() => seller_profiles.id),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    rating: integer("rating").notNull(),
+    comment: text("comment"),
+    order_item_id: bigint("order_item_id", { mode: "number" })
+      .notNull()
+      .references(() => order_items.id),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_seller_reviews_seller_id").on(table.seller_id),
+    index("idx_seller_reviews_order_item_id").on(table.order_item_id),
+    index("idx_seller_reviews_unique").on(table.order_item_id),
+  ],
+);
 
 // ── TESTIMONIALS ──
 export const testimonials = pgTable("testimonials", {
