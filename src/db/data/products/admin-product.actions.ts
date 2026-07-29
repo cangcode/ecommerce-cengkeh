@@ -80,12 +80,15 @@ export async function toggleProductActive(id: number) {
 }
 
 export async function deleteProduct(id: number) {
-  const [deleted] = await db
-    .delete(products)
+  // Soft delete: set is_active = false instead of hard delete
+  // This avoids foreign key constraint errors with order_items, chart_items, etc.
+  const [updated] = await db
+    .update(products)
+    .set({ is_active: false, updated_at: new Date() })
     .where(eq(products.id, id))
     .returning();
 
-  return deleted ?? null;
+  return updated ?? null;
 }
 
 export async function createProductForAdmin(

@@ -58,9 +58,12 @@ export default function AdminProductsPage() {
     wholesale_qty: "",
     weight_unit: "gram" as "gram" | "kg",
     stock: "",
-    image_url_json: "",
   });
   const [saving, setSaving] = useState(false);
+  const [imageUrls, setImageUrls] = useState<
+    { public_id: string; secure_url: string }[]
+  >([]);
+  const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -92,8 +95,8 @@ export default function AdminProductsPage() {
       wholesale_qty: "",
       weight_unit: "gram",
       stock: "",
-      image_url_json: "",
     });
+    setImageUrls([]);
     setDialogOpen(true);
   };
 
@@ -110,8 +113,8 @@ export default function AdminProductsPage() {
       wholesale_qty: p.wholesale_qty != null ? String(p.wholesale_qty) : "",
       weight_unit: p.weight_unit,
       stock: String(p.stock),
-      image_url_json: JSON.stringify(p.image_url),
     });
+    setImageUrls(structuredClone(p.image_url));
     setDialogOpen(true);
   };
 
@@ -127,13 +130,6 @@ export default function AdminProductsPage() {
       return;
     setSaving(true);
     try {
-      let image_url: { public_id: string; secure_url: string }[] = [];
-      try {
-        image_url = JSON.parse(form.image_url_json || "[]");
-      } catch {
-        image_url = [];
-      }
-
       const payload = {
         seller_id: Number(form.seller_id),
         slug: form.slug,
@@ -148,7 +144,7 @@ export default function AdminProductsPage() {
           : undefined,
         weight_unit: form.weight_unit,
         stock: Number(form.stock),
-        image_url,
+        image_url: imageUrls,
       };
 
       if (editingId) {
@@ -187,14 +183,46 @@ export default function AdminProductsPage() {
     }
   };
 
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const handleDelete = async (id: number) => {
-    if (!confirm("Yakin hapus produk ini?")) return;
+    setDeleteConfirmId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (deleteConfirmId === null) return;
+    setDeleting(true);
     try {
-      await axios.delete("/api/admin/products", { data: { id } });
-      setItems((prev) => prev.filter((p) => p.id !== id));
+      await axios.delete("/api/admin/products", {
+        data: { id: deleteConfirmId },
+      });
+      setItems((prev) => prev.filter((p) => p.id !== deleteConfirmId));
       toast.success("Produk dihapus.");
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Gagal menghapus produk.";
+      toast.error(msg);
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmId(null);
+    }
+  };
+
+  const handleDeleteImage = async (publicId: string) => {
+    setDeletingImageId(publicId);
+    try {
+      const res = await fetch("/api/cloudinary/image", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicId }),
+      });
+      if (!res.ok) throw new Error("Gagal menghapus");
+      setImageUrls((prev) => prev.filter((i) => i.public_id !== publicId));
+      toast.success("Gambar dihapus.");
     } catch {
-      toast.error("Gagal menghapus.");
+      toast.error("Gagal menghapus gambar.");
+    } finally {
+      setDeletingImageId(null);
     }
   };
 
@@ -235,7 +263,6 @@ export default function AdminProductsPage() {
         </Button>
       </div>
 
-      {/* summary */}
       <div className="grid grid-cols-3 gap-3">
         {[
           {
@@ -269,7 +296,6 @@ export default function AdminProductsPage() {
         ))}
       </div>
 
-      {/* search */}
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-cengkeh-brown/40" />
         <Input
@@ -280,7 +306,6 @@ export default function AdminProductsPage() {
         />
       </div>
 
-      {/* table */}
       <Card className="border-cengkeh-brown/10 bg-white overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -541,19 +566,39 @@ export default function AdminProductsPage() {
                 />
               </div>
             )}
-            <div className="space-y-1">
-              <Label className="text-xs">
-                Gambar (JSON array:
-                [&#123;"public_id":"...","secure_url":"..."&#125;])
-              </Label>
-              <Textarea
-                value={form.image_url_json}
-                onChange={(e) =>
-                  setForm({ ...form, image_url_json: e.target.value })
-                }
-                placeholder='[{"public_id":"x","secure_url":"https://..."}]'
-                className="resize-none h-16 font-mono text-xs"
-              />
+
+            {/* Gambar Produk */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Gambar Produk</Label>
+              {imageUrls.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Belum ada gambar.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {imageUrls.map((img) => (
+                    <div key={img.public_id} className="relative group">
+                      <img
+                        src={img.secure_url}
+                        alt=""
+                        className="size-16 rounded border object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteImage(img.public_id)}
+                        disabled={deletingImageId === img.public_id}
+                        className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        {deletingImageId === img.public_id ? (
+                          <Loader2 className="size-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="size-3" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter className="flex gap-2 sm:justify-end pt-2">
@@ -584,6 +629,45 @@ export default function AdminProductsPage() {
                 "Simpan"
               ) : (
                 "Tambah"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* dialog konfirmasi hapus */}
+      <Dialog
+        open={deleteConfirmId !== null}
+        onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-cengkeh-brown">
+              Konfirmasi Hapus
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              Yakin ingin menghapus produk ini? Tindakan ini tidak dapat
+              dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteConfirmId(null)}
+            >
+              Batal
+            </Button>
+            <Button
+              size="sm"
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={confirmDelete}
+            >
+              {deleting ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                "Hapus"
               )}
             </Button>
           </DialogFooter>
