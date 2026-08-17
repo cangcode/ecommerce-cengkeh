@@ -89,6 +89,7 @@ export const products = pgTable(
       >()
       .notNull()
       .default([]),
+    water_content: real("water_content"),
     buyer_count: integer("buyer_count").notNull().default(0),
     sold_count: bigint("sold_count", { mode: "number" }).notNull().default(0),
     is_active: boolean("is_active").notNull().default(true),

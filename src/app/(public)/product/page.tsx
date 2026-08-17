@@ -92,7 +92,7 @@ export default function ProductList() {
           >
             <Link href={`/product/${product.slug}`} className="block">
               <img
-                src={product.image_url[0]?.secure_url}
+                src={product.image_url?.[0]?.secure_url}
                 alt={product.title}
                 className="relative z-20 aspect-video w-full object-cover group-hover/product-card:opacity-90 transition-opacity"
               />

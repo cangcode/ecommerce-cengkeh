@@ -354,7 +354,7 @@ export default function AdminProductsPage() {
                       <div className="flex items-center gap-2">
                         {p.image_url?.[0]?.secure_url ? (
                           <img
-                            src={p.image_url[0].secure_url}
+                            src={p.image_url?.[0]?.secure_url}
                             alt={p.title}
                             className="size-8 rounded object-cover"
                           />

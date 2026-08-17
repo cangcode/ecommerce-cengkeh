@@ -91,6 +91,7 @@ export async function applyVoucherCode(
   code: string,
   subtotal: number,
   totalWeightKg?: number,
+  sellerId?: number,
 ): Promise<VoucherApplyResult> {
   const normalizedCode = code.trim().toUpperCase();
 
@@ -102,6 +103,11 @@ export async function applyVoucherCode(
 
   if (!voucher) {
     return { valid: false, message: "Kode voucher tidak ditemukan." };
+  }
+
+  // Pastikan voucher milik toko yang sedang di-checkout
+  if (sellerId != null && voucher.seller_id !== sellerId) {
+    return { valid: false, message: "Voucher ini bukan milik toko ini." };
   }
 
   // Cek expired
