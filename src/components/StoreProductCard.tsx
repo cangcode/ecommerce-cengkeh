@@ -39,7 +39,7 @@ export function StoreProductCard({ product }: StoreProductCardProps) {
     <>
       <Card className="relative mx-auto w-full max-w-sm py-0 overflow-hidden">
         <img
-          src={product.image_url[0]?.secure_url}
+          src={product.image_url?.[0]?.secure_url}
           alt={product.title}
           className="relative z-20 aspect-video w-full object-cover"
         />

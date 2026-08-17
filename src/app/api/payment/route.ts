@@ -3,9 +3,9 @@ import { createXenditInvoice } from "@/lib/xendit";
 import { auth } from "@/auth";
 import { getChartItems } from "@/db/data/charts/charts.actions";
 import { db } from "@/index";
-import { orders, order_items, vouchers } from "@/db/schema";
+import { orders, order_items, vouchers, chart_items } from "@/db/schema";
 import { applyVoucherCode } from "@/db/data/vouchers/voucher.actions";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, inArray } from "drizzle-orm";
 
 export const runtime = "nodejs";
 
@@ -62,6 +62,19 @@ export async function POST(req: Request) {
     if (!chartItems.length) {
       return NextResponse.json(
         { success: false, message: "Keranjang kosong." },
+        { status: 400 },
+      );
+    }
+
+    // Pastikan semua item berasal dari satu toko (checkout per toko)
+    const sellerIds = new Set(chartItems.map((item) => item.seller_id));
+    if (sellerIds.size > 1) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Satu checkout hanya untuk satu toko. Silakan checkout tiap toko secara terpisah.",
+        },
         { status: 400 },
       );
     }
@@ -197,6 +210,11 @@ export async function POST(req: Request) {
     }));
 
     await db.insert(order_items).values(itemValues);
+
+    // Hapus item keranjang yang sudah di-checkout
+    await db
+      .delete(chart_items)
+      .where(inArray(chart_items.id, chartItems.map((i) => i.id)));
 
     if (appliedVoucherId) {
       await db

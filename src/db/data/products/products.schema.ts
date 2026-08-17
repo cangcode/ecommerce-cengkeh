@@ -16,6 +16,7 @@ export const createProductSchema = z.object({
       secure_url: z.url(),
     }),
   ),
+  water_content: z.number().min(0).max(100).nullish(),
 });
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;

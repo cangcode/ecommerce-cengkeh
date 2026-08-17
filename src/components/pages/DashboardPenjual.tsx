@@ -160,7 +160,7 @@ const DashboardPenjual = async ({ session, stats }: Props) => {
                         <div className="size-10 rounded-lg bg-cengkeh-brown/10 overflow-hidden shrink-0">
                           {product.image_url?.[0]?.secure_url ? (
                             <Image
-                              src={product.image_url[0].secure_url}
+                              src={product.image_url?.[0]?.secure_url}
                               alt={product.title}
                               width={40}
                               height={40}

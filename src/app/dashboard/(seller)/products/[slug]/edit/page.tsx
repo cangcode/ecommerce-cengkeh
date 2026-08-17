@@ -37,6 +37,7 @@ const Page = async ({ params }: { params: Params }) => {
           stock: product.stock,
           wholesale_price: product.wholesale_price ?? null,
           wholesale_qty: product.wholesale_qty ?? null,
+          water_content: product.water_content ?? null,
           image_url: product.image_url ?? [],
         }}
       />

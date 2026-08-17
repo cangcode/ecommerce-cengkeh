@@ -11,6 +11,7 @@ import {
   Users,
   ChevronRight,
   ShoppingBag,
+  Droplets,
 } from "lucide-react";
 import Link from "next/link";
 import { ProductDetailClient } from "@/components/ProductDetailClient";
@@ -138,6 +139,17 @@ export default async function ProductDetailPage({ params }: Props) {
                 <p className="text-xs text-muted-foreground">Stok</p>
                 <p className="font-medium text-cengkeh-brown">
                   {product.stock} {product.weight_unit}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Droplets className="size-4 text-cengkeh-brown/60" />
+              <div>
+                <p className="text-xs text-muted-foreground">Kadar Air</p>
+                <p className="font-medium text-cengkeh-brown">
+                  {product.water_content != null
+                    ? `${product.water_content}%`
+                    : "-"}
                 </p>
               </div>
             </div>

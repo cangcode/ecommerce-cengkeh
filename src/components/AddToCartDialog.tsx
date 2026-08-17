@@ -119,9 +119,9 @@ export function AddToCartDialog({ product, open, onOpenChange }: Props) {
 
         {/* Info produk */}
         <div className="flex gap-3 items-start">
-          {product.image_url[0]?.secure_url && (
+          {product.image_url?.[0]?.secure_url && (
             <img
-              src={product.image_url[0].secure_url}
+              src={product.image_url?.[0]?.secure_url}
               alt={product.title}
               className="size-16 rounded-lg object-cover shrink-0"
             />

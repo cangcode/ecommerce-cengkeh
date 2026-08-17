@@ -20,6 +20,7 @@ export async function createProduct(data: z.infer<typeof createProductSchema>) {
     weight_unit: validated.weight_unit,
     stock: validated.stock,
     image_url: validated.image_url,
+    water_content: validated.water_content,
   });
   return productsData;
 }

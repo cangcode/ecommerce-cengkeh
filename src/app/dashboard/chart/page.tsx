@@ -100,16 +100,46 @@ export default function ChartPage() {
     Record<number, ShippingMethod>
   >({});
   const [loading, setLoading] = useState(true);
-  const [paying, setPaying] = useState(false);
+  const [payingSellerId, setPayingSellerId] = useState<number | null>(null);
 
   const qtyTimerRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
-  // Voucher states
-  const [voucherCode, setVoucherCode] = useState("");
-  const [voucherDiscount, setVoucherDiscount] = useState(0);
-  const [voucherLabel, setVoucherLabel] = useState<string | null>(null);
-  const [voucherError, setVoucherError] = useState<string | null>(null);
-  const [applyingVoucher, setApplyingVoucher] = useState(false);
+  // Voucher states — per toko
+  type SellerVoucher = {
+    code: string;
+    discount: number;
+    label: string | null;
+    error: string | null;
+  };
+  const [vouchersBySeller, setVouchersBySeller] = useState<
+    Record<number, SellerVoucher>
+  >({});
+  const [applyingVoucherSellerId, setApplyingVoucherSellerId] = useState<
+    number | null
+  >(null);
+
+  const getSellerVoucher = (sellerId: number): SellerVoucher =>
+    vouchersBySeller[sellerId] ?? {
+      code: "",
+      discount: 0,
+      label: null,
+      error: null,
+    };
+
+  const updateSellerVoucher = (
+    sellerId: number,
+    patch: Partial<SellerVoucher>,
+  ) => {
+    setVouchersBySeller((prev) => {
+      const cur = prev[sellerId] ?? {
+        code: "",
+        discount: 0,
+        label: null,
+        error: null,
+      };
+      return { ...prev, [sellerId]: { ...cur, ...patch } };
+    });
+  };
 
   // Selection state — pilih produk yang akan di-checkout
   const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(
@@ -276,56 +306,51 @@ export default function ChartPage() {
       return sum + up * i.quantity;
     }, 0);
 
-  const grandTotal = sellerGroups.reduce((sum, g) => {
-    const selWeight = selectedSellerTotalWeightKg(g);
-    if (selWeight <= 0) return sum;
-    const cost = calcShippingCost(selWeight, getShippingMethod(g.seller.id));
-    return sum + selectedSellerSubtotal(g) + cost;
-  }, 0);
-
-  const finalTotal = Math.max(0, grandTotal - voucherDiscount);
-
   const selectedCount = selectedItemIds.size;
 
-  // ---- Voucher Handler ----
-  async function handleApplyVoucher() {
-    if (!voucherCode.trim()) return;
-    setApplyingVoucher(true);
-    setVoucherError(null);
+  // ---- Voucher Handler (per toko) ----
+  async function handleApplyVoucher(sellerId: number) {
+    const group = sellerGroups.find((g) => g.seller.id === sellerId);
+    if (!group) return;
+    const v = getSellerVoucher(sellerId);
+    if (!v.code.trim()) return;
+    setApplyingVoucherSellerId(sellerId);
+    updateSellerVoucher(sellerId, { error: null });
     try {
-      const itemsTotal = sellerGroups.reduce(
-        (sum, g) => sum + selectedSellerSubtotal(g),
-        0,
-      );
-      const totalWeightKg = sellerGroups.reduce(
-        (sum, g) => sum + selectedSellerTotalWeightKg(g),
-        0,
-      );
+      const subtotal = selectedSellerSubtotal(group);
+      const totalWeightKg = selectedSellerTotalWeightKg(group);
       const { data } = await axios.post("/api/vouchers/apply", {
-        code: voucherCode.trim(),
-        subtotal: itemsTotal,
+        code: v.code.trim(),
+        seller_id: sellerId,
+        subtotal,
         total_weight_kg: totalWeightKg,
       });
       if (data.valid) {
-        setVoucherDiscount(data.discount_amount);
-        setVoucherLabel(`Voucher ${data.voucher.code}`);
+        updateSellerVoucher(sellerId, {
+          discount: data.discount_amount,
+          label: `Voucher ${data.voucher.code}`,
+        });
       } else {
-        setVoucherError(data.message);
-        setVoucherDiscount(0);
-        setVoucherLabel(null);
+        updateSellerVoucher(sellerId, {
+          error: data.message,
+          discount: 0,
+          label: null,
+        });
       }
     } catch {
-      setVoucherError("Gagal memvalidasi voucher.");
+      updateSellerVoucher(sellerId, { error: "Gagal memvalidasi voucher." });
     } finally {
-      setApplyingVoucher(false);
+      setApplyingVoucherSellerId(null);
     }
   }
 
-  function clearVoucher() {
-    setVoucherCode("");
-    setVoucherDiscount(0);
-    setVoucherLabel(null);
-    setVoucherError(null);
+  function clearSellerVoucher(sellerId: number) {
+    updateSellerVoucher(sellerId, {
+      code: "",
+      discount: 0,
+      label: null,
+      error: null,
+    });
   }
 
   // ---- Persist quantity to API ----
@@ -414,35 +439,35 @@ export default function ChartPage() {
     return null;
   }
 
-  async function handleCheckout() {
+  async function handleCheckout(sellerId: number) {
     if (!selectedAddressId) {
       toast.error("Pilih alamat tujuan terlebih dahulu.");
       return;
     }
-    if (selectedCount === 0) {
+    const group = sellerGroups.find((g) => g.seller.id === sellerId);
+    if (!group) return;
+    const selItems = getSelectedItems(group.items);
+    if (selItems.length === 0) {
       toast.error("Pilih minimal 1 produk untuk di-checkout.");
       return;
     }
-    setPaying(true);
+    setPayingSellerId(sellerId);
     try {
-      const shippingPerSeller: Record<
-        number,
-        { method: string; cost: number }
-      > = {};
-      for (const g of sellerGroups) {
-        const weight = selectedSellerTotalWeightKg(g);
-        if (weight <= 0) continue;
-        shippingPerSeller[g.seller.id] = {
-          method: getShippingMethod(g.seller.id),
-          cost: calcShippingCost(weight, getShippingMethod(g.seller.id)),
-        };
-      }
+      const weight = selectedSellerTotalWeightKg(group);
+      const method = getShippingMethod(sellerId);
+      const shippingPerSeller = {
+        [sellerId]: {
+          method,
+          cost: calcShippingCost(weight, method),
+        },
+      };
+      const v = getSellerVoucher(sellerId);
 
       const res = await axios.post("/api/payment", {
         shipping_per_seller: shippingPerSeller,
         address_id: selectedAddressId,
-        voucher_code: voucherLabel ? voucherCode.trim() : undefined,
-        chart_item_ids: Array.from(selectedItemIds),
+        voucher_code: v.label ? v.code.trim() : undefined,
+        chart_item_ids: selItems.map((i) => i.id),
       });
       const { invoice_url } = res.data;
 
@@ -468,7 +493,7 @@ export default function ChartPage() {
       }
       toast.error(message);
     } finally {
-      setPaying(false);
+      setPayingSellerId(null);
     }
   }
 
@@ -670,9 +695,9 @@ export default function ChartPage() {
                               )}
                             </button>
                           </div>
-                          {item.product_image_url[0]?.secure_url && (
+                          {item.product_image_url?.[0]?.secure_url && (
                             <img
-                              src={item.product_image_url[0].secure_url}
+                              src={item.product_image_url?.[0]?.secure_url}
                               alt={item.product_title}
                               className="h-20 w-full rounded-lg object-cover sm:h-24 sm:w-28 shrink-0"
                             />
@@ -827,162 +852,160 @@ export default function ChartPage() {
               })}
             </div>
 
-            {/* Ringkasan checkout */}
-            <Card className="h-fit p-4 lg:sticky lg:top-4">
-              <CardHeader className="p-0 pb-3">
-                <CardTitle className="text-base text-cengkeh-brown">
-                  Ringkasan Checkout
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 p-0">
-                {sellerGroups.map((group) => {
-                  const selSub = selectedSellerSubtotal(group);
-                  const selW = selectedSellerTotalWeightKg(group);
-                  if (selW <= 0) return null;
-                  const ship = calcShippingCost(
-                    selW,
-                    getShippingMethod(group.seller.id),
-                  );
-                  return (
-                    <div key={group.seller.id} className="space-y-1">
-                      <p className="text-xs font-semibold text-cengkeh-brown">
+            {/* Ringkasan checkout per toko */}
+            <div className="space-y-3 lg:sticky lg:top-4 lg:self-start">
+              {sellerGroups.map((group) => {
+                const selItems = getSelectedItems(group.items);
+                if (selItems.length === 0) return null;
+                const selSub = selectedSellerSubtotal(group);
+                const selW = selectedSellerTotalWeightKg(group);
+                const shipCost = calcShippingCost(
+                  selW,
+                  getShippingMethod(group.seller.id),
+                );
+                const v = getSellerVoucher(group.seller.id);
+                const storeTotal = Math.max(0, selSub + shipCost - v.discount);
+                const isPayingThisStore = payingSellerId === group.seller.id;
+                return (
+                  <Card key={group.seller.id} className="p-4">
+                    <CardHeader className="p-0 pb-3">
+                      <CardTitle className="flex items-center gap-2 text-base text-cengkeh-brown">
+                        <Store className="size-4" />
                         {group.seller.name}
-                      </p>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>
-                          Subtotal ({getSelectedItems(group.items).length} item)
-                        </span>
-                        <span>{formatRupiah(selSub)}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs font-semibold text-cengkeh-brown">
-                        <span>Total Toko</span>
-                        <span>{formatRupiah(selSub)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-                <Separator />
-                {selectedAddress ? (
-                  <div className="rounded-lg bg-cengkeh-brown/5 p-2 text-xs">
-                    <p className="font-medium text-cengkeh-brown">
-                      <MapPin className="size-3 inline mr-1" />
-                      Dikirim ke:
-                    </p>
-                    <p className="text-muted-foreground truncate">
-                      {selectedAddress.recipient_name} —{" "}
-                      {selectedAddress.address}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-                    ⚠️ Belum pilih alamat tujuan.{" "}
-                    <a
-                      href="/dashboard/addresses/add"
-                      className="underline font-medium"
-                    >
-                      Tambah alamat dulu
-                    </a>
-                  </div>
-                )}
-                <Separator />
-
-                {/* Voucher Input */}
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-cengkeh-brown flex items-center gap-1">
-                    <Ticket className="size-3.5" /> Kode Voucher
-                  </p>
-                  {voucherLabel ? (
-                    <div className="flex items-center justify-between rounded-md bg-green-50 border border-green-200 p-2 text-xs">
-                      <span className="text-green-700 font-medium">
-                        ✅ {voucherLabel} — Diskon{" "}
-                        {formatRupiah(voucherDiscount)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={clearVoucher}
-                        className="text-green-600 hover:text-red-600"
-                      >
-                        <X className="size-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Input
-                        value={voucherCode}
-                        onChange={(e) => {
-                          setVoucherCode(e.target.value.toUpperCase());
-                          setVoucherError(null);
-                        }}
-                        placeholder="Masukkan kode voucher"
-                        className="h-9 text-xs font-mono"
-                        maxLength={20}
-                        onKeyDown={(e) =>
-                          e.key === "Enter" && handleApplyVoucher()
-                        }
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-9 text-xs text-cengkeh-brown"
-                        disabled={!voucherCode.trim() || applyingVoucher}
-                        onClick={handleApplyVoucher}
-                      >
-                        {applyingVoucher ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          "Pakai"
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 p-0">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-cengkeh-brown/70">
+                            Subtotal ({selItems.length} item)
+                          </span>
+                          <span className="font-medium text-cengkeh-brown">
+                            {formatRupiah(selSub)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-cengkeh-brown/70">
+                            Pengiriman
+                          </span>
+                          <span className="font-medium text-cengkeh-brown">
+                            {formatRupiah(shipCost)}
+                          </span>
+                        </div>
+                        {v.discount > 0 && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-green-700">
+                              Diskon Voucher
+                            </span>
+                            <span className="font-medium text-green-700">
+                              -{formatRupiah(v.discount)}
+                            </span>
+                          </div>
                         )}
-                      </Button>
-                    </div>
-                  )}
-                  {voucherError && (
-                    <p className="text-[11px] text-red-600">{voucherError}</p>
-                  )}
-                </div>
+                      </div>
+                      <Separator />
+                      {v.label ? (
+                        <div className="flex items-center justify-between rounded-md bg-green-50 border border-green-200 p-2 text-xs">
+                          <span className="text-green-700 font-medium">
+                            ✅ {v.label} — Diskon {formatRupiah(v.discount)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => clearSellerVoucher(group.seller.id)}
+                            className="text-green-600 hover:text-red-600"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Input
+                            value={v.code}
+                            onChange={(e) =>
+                              updateSellerVoucher(group.seller.id, {
+                                code: e.target.value.toUpperCase(),
+                                error: null,
+                              })
+                            }
+                            placeholder="Masukkan kode voucher"
+                            className="h-9 text-xs font-mono"
+                            maxLength={20}
+                            onKeyDown={(e) =>
+                              e.key === "Enter" &&
+                              handleApplyVoucher(group.seller.id)
+                            }
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 text-xs text-cengkeh-brown"
+                            disabled={
+                              !v.code.trim() ||
+                              applyingVoucherSellerId === group.seller.id
+                            }
+                            onClick={() => handleApplyVoucher(group.seller.id)}
+                          >
+                            {applyingVoucherSellerId === group.seller.id ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              "Pakai"
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                      {v.error && (
+                        <p className="text-[11px] text-red-600">{v.error}</p>
+                      )}
 
-                <Separator />
+                      <Separator />
 
-                {/* Ringkasan biaya */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-cengkeh-brown/70">
-                      Subtotal ({selectedCount} item)
-                    </span>
-                    <span className="font-medium text-cengkeh-brown">
-                      {formatRupiah(grandTotal)}
-                    </span>
-                  </div>
-                  {voucherDiscount > 0 && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-green-700">Diskon Voucher</span>
-                      <span className="font-medium text-green-700">
-                        -{formatRupiah(voucherDiscount)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-semibold text-cengkeh-brown">
-                      Grand Total
-                    </span>
-                    <span className="text-lg font-bold text-cengkeh-brown">
-                      {formatRupiah(finalTotal)}
-                    </span>
-                  </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-cengkeh-brown">
+                          Total Toko
+                        </span>
+                        <span className="text-lg font-bold text-cengkeh-brown">
+                          {formatRupiah(storeTotal)}
+                        </span>
+                      </div>
+
+                      <AppButton
+                        className="mt-1 flex justify-center font-semibold w-full gap-2"
+                        disabled={payingSellerId !== null}
+                        onClick={() => handleCheckout(group.seller.id)}
+                      >
+                        {isPayingThisStore
+                          ? "Memproses..."
+                          : "Checkout Toko Ini"}
+                        <ChevronRight className="size-4" />
+                      </AppButton>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+              {/* Alamat tujuan */}
+              {selectedAddress ? (
+                <div className="rounded-lg bg-cengkeh-brown/5 p-3 text-xs">
+                  <p className="font-medium text-cengkeh-brown">
+                    <MapPin className="size-3 inline mr-1" />
+                    Dikirim ke:
+                  </p>
+                  <p className="text-muted-foreground truncate">
+                    {selectedAddress.recipient_name} —{" "}
+                    {selectedAddress.address}
+                  </p>
                 </div>
-                <AppButton
-                  className="mt-2 flex justify-center font-semibold w-full gap-2"
-                  disabled={paying || selectedCount === 0}
-                  onClick={handleCheckout}
-                >
-                  {paying
-                    ? "Memproses..."
-                    : selectedCount === 0
-                      ? "Pilih Produk"
-                      : `Checkout (${selectedCount} item)`}
-                  <ChevronRight className="size-4" />
-                </AppButton>
-              </CardContent>
-            </Card>
+              ) : (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  ⚠️ Belum pilih alamat tujuan.{" "}
+                  <a
+                    href="/dashboard/addresses/add"
+                    className="underline font-medium"
+                  >
+                    Tambah alamat dulu
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}

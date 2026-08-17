@@ -55,6 +55,11 @@ export const formSchema = z
     wholesale_price: z.number().optional(),
     wholesale_qty: z.number().optional(),
     stock: z.number().min(1, "Masukkan minimum pembelian"),
+    water_content: z
+      .number()
+      .min(0, "Kadar air minimal 0%")
+      .max(100, "Kadar air maksimal 100%")
+      .nullish(),
     image_url: z.array(
       z.object({
         public_id: z.string(),
@@ -95,6 +100,7 @@ export function AddProductForm() {
       wholesale_qty: 0,
       wholesale_price: 0,
       stock: 0,
+      water_content: null,
       image_url: [],
     },
   });
@@ -129,6 +135,7 @@ export function AddProductForm() {
         price: data.price,
         weight_unit: "kg",
         stock: data.stock,
+        water_content: data.water_content ?? null,
         image_url: data.image_url,
         ...(data.is_wholesale
           ? {
@@ -532,6 +539,37 @@ export function AddProductForm() {
                     onChange={(e) => {
                       const raw = e.target.value;
                       field.onChange(raw === "" ? 0 : Number(raw));
+                    }}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError
+                      className="text-xs"
+                      errors={[fieldState.error]}
+                    />
+                  )}
+                </Field>
+              )}
+            />
+            {/* kadar air */}
+            <Controller
+              name="water_content"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="water_content">Kadar Air (%)</FieldLabel>
+                  <Input
+                    id="water_content"
+                    type="text"
+                    inputMode="decimal"
+                    aria-invalid={fieldState.invalid}
+                    placeholder="Contoh: 12.5 (opsional)"
+                    autoComplete="off"
+                    value={field.value ?? ""}
+                    onBlur={field.onBlur}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/,/g, ".");
+                      const num = Number(raw);
+                      field.onChange(raw === "" || Number.isNaN(num) ? null : num);
                     }}
                   />
                   {fieldState.invalid && (
